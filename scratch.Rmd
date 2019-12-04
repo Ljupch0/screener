@@ -1,6 +1,8 @@
 ---
 title: "Scratch"
 output: html_notebook
+editor_options: 
+  chunk_output_type: inline
 ---
 
 
@@ -9,6 +11,9 @@ output: html_notebook
 library(dplyr)
 library(ggplot2)
 library(DT)
+Sys.setenv(JAVA_HOME='C:\\Program Files\\Java\\jre1.8.0_231')
+library(tabulizer)
+library(tidyquant)
 ```
 
 
@@ -16,21 +21,79 @@ library(DT)
 
 
 
+```{r}
+download.file("https://content.ftserussell.com/sites/default/files/support_document/RU2000_MembershipList_20190701.pdf","russell2000list.pdf", mode="wb")
+```
+
+```{r}
+russell2000<- extract_tables("https://content.ftserussell.com/sites/default/files/support_document/RU2000_MembershipList_20190701.pdf", encoding = "UTF-8",output = "data.frame")
+```
 
 
 
 
 
 
+```{r}
+n <- 0
+
+for(i in russell2000){
+  n <- n + 1
+  assign(paste0('table',n), rbind(i) %>% select(-3,-6))
+}
+
+
+```
+
+```{r}
+rbind(russell2000[[1]]) %>% 
+  slice(-1) %>% 
+  select(-3,-6)
+```
+
+Joel Greenblatt's Magic Formula:
+
+1. Establish a minimum market capitalization (usually greater than $50 million).
+2. Exclude utility and financial stocks.
+3. Exclude foreign companies (American Depositary Receipts).
+4. Determine company's earnings yield = EBIT / enterprise value.
+5. Determine company's return on capital = EBIT / (net fixed assets + working capital).
+6. Rank all companies above chosen market capitalization by highest earnings yield and highest return on capital (ranked as percentages).
+7. Invest in 20–30 highest ranked companies, accumulating 2–3 positions per month over a 12-month period.
+8. Re-balance portfolio once per year, selling losers one week before the year-mark and winners one week after the year mark.
+9. Continue over a long-term (5–10+ year) period.
 
 
 
 
 
+```{r}
+#Get Russell 3000 index members, represents 98% of all traded US stocks
+russell3000 <- tq_index("russell3000")
+
+#Step 1 of Magic Formula is already fulfilled, as the smallest members of the Russell3000 index have market capitalizations of around $200 million (> benchmark 100m)
+
+#Step 2 of Formula: Remove all stocks from the "Financial Services" and "Utilities" sectors
+russell3000 <- russell3000 %>%
+  dplyr::filter(!grepl("Financial Services", sector), !grepl("Utilities", sector))
+
+#Check that filtering has been done correctly
+unique(russell3000$sector)
+
+
+#Step 3 of formula is already done, as Russell3000 doesn't include ADRs by default
+
+#Step 4: Determine Earning's Yield
 
 
 
+```
 
+
+```{r}
+#Step 1, remove Market Caps smaller than 100m
+
+```
 
 
 
