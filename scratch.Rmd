@@ -8,12 +8,14 @@ editor_options:
 
 
 ```{r}
-library(dplyr)
-library(ggplot2)
+library(tidyverse)
 library(DT)
 Sys.setenv(JAVA_HOME='C:\\Program Files\\Java\\jre1.8.0_231')
 library(tabulizer)
 library(tidyquant)
+library(qunatmod)
+library(finreportr)
+library(rvest)
 ```
 
 
@@ -91,19 +93,76 @@ unique(russell3000$sector)
 
 
 ```{r}
-#Step 1, remove Market Caps smaller than 100m
 
+GetIncome("AAPL",2018)
+
+```
+
+
+```{r}
+library(rvest)
+
+"https://finance.yahoo.com/quote/AAPL/financials?p=AAPL" %>% 
+  read_html() %>%
+  html_nodes("iframe")
 ```
 
 
 
 
 
+```{r}
+page <- read_html('https://finance.yahoo.com/quote/CECE/financials?p=CECE')
+nodes <- page %>%html_nodes(".fi-row")
+df = NULL
+
+for(i in nodes){
+  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+}
+
+matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+headers <- c('Breakdown','TTM', matches[[1]][,1]) 
+names(df) <- headers
+View(df)
+```
 
 
 
+```{r}
+page <- read_html('https://finance.yahoo.com/quote/CECE/balance-sheet?p=CECE')
+nodes <- page %>%html_nodes(".fi-row")
+df = NULL
+
+for(i in nodes){
+  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+}
+
+matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+headers <- c('Breakdown', matches[[1]][,1]) 
+names(df) <- headers
+View(df)
+
+```
 
 
 
+```{r}
+page <- read_html('https://finance.yahoo.com/quote/CECE/cash-flow?p=CECE')
+nodes <- page %>%html_nodes(".fi-row")
+df = NULL
+
+for(i in nodes){
+  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+}
+
+matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+headers <- c('Breakdown','TTM', matches[[1]][,1]) 
+names(df) <- headers
+View(df)
+
+```
 
 
