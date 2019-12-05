@@ -195,8 +195,32 @@ getIncome("AAPL")
 
 
 ```{r}
-ticker="GOOG"
+#function RAW
+ticker="AAPL"
+yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
+  page <- read_html(yfin_url)
+  nodes <- page %>%html_nodes(".fi-row")
+  df = NULL
+  
+  for(i in nodes){
+  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+  }
+  
+  matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+  headers <- c('Breakdown','TTM', matches[[1]][,1]) 
+  names(df) <- headers
+  
+  assign(paste0(ticker,"_income_raw"),df)
+```
 
+
+
+
+
+```{r}
+#Function Clean
+ticker="AAPL"
 yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
   page <- read_html(yfin_url)
   nodes <- page %>%html_nodes(".fi-row")
@@ -211,17 +235,98 @@ yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ti
   matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
   headers <- c('Breakdown','TTM', matches[[1]][,1]) 
   names(df) <- headers
+
   
-  assign(paste0(ticker,"_income"),df)
+  df<- na_if(df,"-")
+  df <- df %>%
+     mutate_at(2:ncol(df), parse_number)
+  
+  df[17, 1] <- "Basic EPS"
+  df[18, 1] <- "Diluted EPS"
+  df[20, 1] <- "Basic W. Average Shares Outstanding"
+  df[21, 1] <- "Diluted W. Average Shares Outstanding"
+  
+  df <- df %>% dplyr::filter(Breakdown != "Operating Expenses" & Breakdown != "Reported EPS"  & Breakdown != "Weighted average shares outstanding")
+  
+  assign(paste0(ticker,"_income_clean"),df)
+
+
 ```
+
+
+
 
 
 ```{r}
-AAPL_income[17, 1] <- "Basic EPS"
-AAPL_income[18, 1] <- "Diluted EPS"
-AAPL_income[20, 1] <- "Basic W. Average Shares Outstanding"
-AAPL_income[21, 1] <- "Diluted W. Average Shares Outstanding"
+#Function Tidy
+ticker="AAPL"
+yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
+  page <- read_html(yfin_url)
+  nodes <- page %>%html_nodes(".fi-row")
+  df = NULL
+  
+  for(i in nodes){
+  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+  }
+  
+
+  matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+  headers <- c('Breakdown','TTM', matches[[1]][,1]) 
+  names(df) <- headers
+
+  
+  df<- na_if(df,"-")
+  df <- df %>%
+     mutate_at(2:ncol(df), parse_number)
+  
+  df[17, 1] <- "Basic EPS"
+  df[18, 1] <- "Diluted EPS"
+  df[20, 1] <- "Basic W. Average Shares Outstanding"
+  df[21, 1] <- "Diluted W. Average Shares Outstanding"
+  
+  df <- df %>% dplyr::filter(Breakdown != "Operating Expenses" & Breakdown != "Reported EPS"  & Breakdown != "Weighted average shares outstanding")
+  
+  df <- df %>% 
+    pivot_longer(c(2:ncol(df)), names_to="date") %>% 
+    pivot_wider(names_from = Breakdown)
+  
+  substrEnd <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+  }
+
+  df <- df %>% 
+   mutate(year = substrEnd(date,4))
+ 
+  df <- df %>% rename(
+     "revenue"=`Total Revenue`,
+     "cost_revenue" = `Cost of Revenue`,
+     "gross_profit" = `Gross Profit`,
+     "r&d" = `Research Development`,
+     "sg&a" = `Selling General and Administrative`,
+     "operating_expenses" = `Total Operating Expenses`,
+     "ebit" = `Operating Income or Loss`,
+     "interest_expense" = `Interest Expense`,
+     "other_income_net" = `Total Other Income/Expenses Net`,
+     "ebt" = `Income Before Tax`,
+     "tax" = `Income Tax Expense`,
+     "income_operations" = `Income from Continuing Operations`,
+     "ni" = `Net Income`,
+     "ni_to_shareholders" = `Net Income available to common shareholders`,
+     "basic_eps" = `Basic EPS`,
+     "diluted_eps" = `Diluted EPS`,
+     "basic_w_avg_shares" = `Basic W. Average Shares Outstanding`,
+     "diluted_w_avg_shares" = `Diluted W. Average Shares Outstanding`,
+     "ebitda" = `EBITDA`
+  )
+ 
+  
+  assign(paste0(ticker,"_income_tidy"),df)
+
 ```
+
+
+
 
 
 ```{r}
