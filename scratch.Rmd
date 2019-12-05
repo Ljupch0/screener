@@ -10,11 +10,9 @@ editor_options:
 ```{r}
 library(tidyverse)
 library(DT)
-Sys.setenv(JAVA_HOME='C:\\Program Files\\Java\\jre1.8.0_231')
 library(tabulizer)
 library(tidyquant)
-library(qunatmod)
-library(finreportr)
+library(quantmod)
 library(rvest)
 ```
 
@@ -32,6 +30,9 @@ russell2000<- extract_tables("https://content.ftserussell.com/sites/default/file
 ```
 
 
+```{r}
+finstr_test <- xbrl_get_statements(AAPL.BS)
+```
 
 
 
@@ -164,5 +165,94 @@ names(df) <- headers
 View(df)
 
 ```
+
+
+
+```{r}
+getIncome <- function(ticker) {
+  yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
+  page <- read_html(yfin_url)
+  nodes <- page %>%html_nodes(".fi-row")
+  df = NULL
+  
+  for(i in nodes){
+  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+}
+
+  matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+  headers <- c('Breakdown','TTM', matches[[1]][,1]) 
+  names(df) <- headers
+  assign(paste0(ticker,"_income"),df,envir = .GlobalEnv)
+} 
+```
+
+
+```{r}
+getIncome("AAPL")
+```
+
+
+
+```{r}
+ticker="GOOG"
+
+yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
+  page <- read_html(yfin_url)
+  nodes <- page %>%html_nodes(".fi-row")
+  df = NULL
+  
+  for(i in nodes){
+  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+  }
+  
+
+  matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+  headers <- c('Breakdown','TTM', matches[[1]][,1]) 
+  names(df) <- headers
+  
+  assign(paste0(ticker,"_income"),df)
+```
+
+
+```{r}
+AAPL_income[17, 1] <- "Basic EPS"
+AAPL_income[18, 1] <- "Diluted EPS"
+AAPL_income[20, 1] <- "Basic W. Average Shares Outstanding"
+AAPL_income[21, 1] <- "Diluted W. Average Shares Outstanding"
+```
+
+
+```{r}
+AAPL_income_tidy <- AAPL_income %>% 
+    pivot_longer(c(2:6), names_to="date") %>% 
+    pivot_wider(names_from = Breakdown)
+
+
+  
+```
+
+
+
+
+```{r}
+substrEnd <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+
+AAPL_income_tidy %>% 
+  mutate(
+    year = substrEnd(date,4)
+   
+  )
+```
+
+
+
+
+
+
+
 
 
