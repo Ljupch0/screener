@@ -222,12 +222,8 @@ getIncome <- function (ticker, format = "tidy") {
 
 
 
-
-
-
-
 ```{r}
-#Release Function
+#test Function
 getIncomeTest <- function (ticker, format = "tidy") {
   
   scrape <- function (ticker) {
@@ -277,7 +273,7 @@ getIncomeTest <- function (ticker, format = "tidy") {
             year = substrEnd(date,4))
     
     df <- df %>% 
-      select(ticker, date, year, everything())
+     select(ticker, date, year, everything())
     
   
     df <- df %>% rename(
@@ -329,9 +325,13 @@ getIncomeTest <- function (ticker, format = "tidy") {
   ###################
   
   if (format=="tidy") {
-    getIncomeTidy(ticker)
+    for (i in ticker) {
+    getIncomeTidy(i)
+      }
+    
   } else if (format=="clean") {
     getIncomeClean(ticker)
+    
   } else if (format=="raw") {
     getIncomeRaw(ticker)
   } else {
@@ -339,11 +339,16 @@ getIncomeTest <- function (ticker, format = "tidy") {
   }
   
 }
+
 ```
 
 
 ```{r}
-getIncome("LRCX")
+getIncomeMultiple <- function (ticker, format="tidy") {
+  for (i in ticker){
+    getIncome(i, format)
+  }
+}
 ```
 
 
@@ -351,12 +356,9 @@ getIncome("LRCX")
 
 
 
-
-
-
-
-
-
+```{r}
+getIncomeMultiple(c("BAC", "JPM"), format="raw")
+```
 
 
 
