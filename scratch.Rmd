@@ -10,7 +10,6 @@ editor_options:
 ```{r}
 library(tidyverse)
 library(DT)
-library(tabulizer)
 library(tidyquant)
 library(quantmod)
 library(rvest)
@@ -93,265 +92,266 @@ unique(russell3000$sector)
 ```
 
 
-```{r}
 
-GetIncome("AAPL",2018)
-
-```
-
-
-```{r}
-library(rvest)
-
-"https://finance.yahoo.com/quote/AAPL/financials?p=AAPL" %>% 
-  read_html() %>%
-  html_nodes("iframe")
-```
 
 
 
 
 
 ```{r}
-page <- read_html('https://finance.yahoo.com/quote/CECE/financials?p=CECE')
-nodes <- page %>%html_nodes(".fi-row")
-df = NULL
 
-for(i in nodes){
-  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
-}
-
-matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-headers <- c('Breakdown','TTM', matches[[1]][,1]) 
-names(df) <- headers
-View(df)
-```
-
-
-
-```{r}
-page <- read_html('https://finance.yahoo.com/quote/CECE/balance-sheet?p=CECE')
-nodes <- page %>%html_nodes(".fi-row")
-df = NULL
-
-for(i in nodes){
-  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
-}
-
-matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-headers <- c('Breakdown', matches[[1]][,1]) 
-names(df) <- headers
-View(df)
-
-```
-
-
-
-```{r}
-page <- read_html('https://finance.yahoo.com/quote/CECE/cash-flow?p=CECE')
-nodes <- page %>%html_nodes(".fi-row")
-df = NULL
-
-for(i in nodes){
-  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
-}
-
-matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-headers <- c('Breakdown','TTM', matches[[1]][,1]) 
-names(df) <- headers
-View(df)
-
-```
-
-
-
-```{r}
-getIncome <- function(ticker) {
-  yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
-  page <- read_html(yfin_url)
-  nodes <- page %>%html_nodes(".fi-row")
-  df = NULL
+#Release Function
+getIncome <- function (ticker, format = "tidy") {
   
-  for(i in nodes){
-  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
-}
-
-  matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-  headers <- c('Breakdown','TTM', matches[[1]][,1]) 
-  names(df) <- headers
-  assign(paste0(ticker,"_income"),df,envir = .GlobalEnv)
-} 
-```
-
-
-```{r}
-getIncome("AAPL")
-```
-
-
-
-```{r}
-#function RAW
-ticker="AAPL"
-yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
-  page <- read_html(yfin_url)
-  nodes <- page %>%html_nodes(".fi-row")
-  df = NULL
-  
-  for(i in nodes){
-  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
-  }
-  
-  matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-  headers <- c('Breakdown','TTM', matches[[1]][,1]) 
-  names(df) <- headers
-  
-  assign(paste0(ticker,"_income_raw"),df)
-```
-
-
-
-
-
-```{r}
-#Function Clean
-ticker="AAPL"
-yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
-  page <- read_html(yfin_url)
-  nodes <- page %>%html_nodes(".fi-row")
-  df = NULL
-  
-  for(i in nodes){
-  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+  scrape <- function (ticker) {
+    yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
+    page <- read_html(yfin_url)
+    nodes <- page %>%html_nodes(".fi-row")
+    df = NULL
+    
+    for(i in nodes){
+    r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+    df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+    }
+    
+    matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+    headers <- c('Items','TTM', matches[[1]][,1]) 
+    names(df) <- headers
+    return(df)
   }
   
 
-  matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-  headers <- c('Breakdown','TTM', matches[[1]][,1]) 
-  names(df) <- headers
-
-  
-  df<- na_if(df,"-")
-  df <- df %>%
-     mutate_at(2:ncol(df), parse_number)
-  
-  df[17, 1] <- "Basic EPS"
-  df[18, 1] <- "Diluted EPS"
-  df[20, 1] <- "Basic W. Average Shares Outstanding"
-  df[21, 1] <- "Diluted W. Average Shares Outstanding"
-  
-  df <- df %>% dplyr::filter(Breakdown != "Operating Expenses" & Breakdown != "Reported EPS"  & Breakdown != "Weighted average shares outstanding")
-  
-  assign(paste0(ticker,"_income_clean"),df)
-
-
-```
-
-
-
-
-
-```{r}
-#Function Tidy
-ticker="AAPL"
-yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
-  page <- read_html(yfin_url)
-  nodes <- page %>%html_nodes(".fi-row")
-  df = NULL
-  
-  for(i in nodes){
-  r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-  df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+  clean <- function (df) {
+    df<- na_if(df,"-")
+    df <- df %>%
+       mutate_at(2:ncol(df), parse_number)
+    
+    df[17, 1] <- "Basic EPS"
+    df[18, 1] <- "Diluted EPS"
+    df[20, 1] <- "Basic W. Average Shares Outstanding"
+    df[21, 1] <- "Diluted W. Average Shares Outstanding"
+    
+    df <- df %>% dplyr::filter(Items != "Operating Expenses" & Items != "Reported EPS"  & Items != "Weighted average shares outstanding")
+    return(df)
   }
   
-
-  matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-  headers <- c('Breakdown','TTM', matches[[1]][,1]) 
-  names(df) <- headers
-
   
-  df<- na_if(df,"-")
-  df <- df %>%
-     mutate_at(2:ncol(df), parse_number)
-  
-  df[17, 1] <- "Basic EPS"
-  df[18, 1] <- "Diluted EPS"
-  df[20, 1] <- "Basic W. Average Shares Outstanding"
-  df[21, 1] <- "Diluted W. Average Shares Outstanding"
-  
-  df <- df %>% dplyr::filter(Breakdown != "Operating Expenses" & Breakdown != "Reported EPS"  & Breakdown != "Weighted average shares outstanding")
-  
-  df <- df %>% 
+  tidy <- function (df) {
+    df <- df %>% 
     pivot_longer(c(2:ncol(df)), names_to="date") %>% 
-    pivot_wider(names_from = Breakdown)
+    pivot_wider(names_from = Items)
   
-  substrEnd <- function(x, n){
-  substr(x, nchar(x)-n+1, nchar(x))
+    substrEnd <- function(x, n){
+    substr(x, nchar(x)-n+1, nchar(x))
+    }
+  
+    df <- df %>% 
+     mutate(ticker=ticker,
+            year = substrEnd(date,4))
+    
+    df <- df %>% 
+     select(ticker, date, year, everything())
+    
+  
+    df <- df %>% rename(
+       "revenue"=`Total Revenue`,
+       "cost_revenue" = `Cost of Revenue`,
+       "gross_profit" = `Gross Profit`,
+       "r&d" = `Research Development`,
+       "sg&a" = `Selling General and Administrative`,
+       "operating_expenses" = `Total Operating Expenses`,
+       "ebit" = `Operating Income or Loss`,
+       "interest_expense" = `Interest Expense`,
+       "other_income_net" = `Total Other Income/Expenses Net`,
+       "ebt" = `Income Before Tax`,
+       "tax" = `Income Tax Expense`,
+       "income_operations" = `Income from Continuing Operations`,
+       "ni" = `Net Income`,
+       "ni_to_shareholders" = `Net Income available to common shareholders`,
+       "basic_eps" = `Basic EPS`,
+       "diluted_eps" = `Diluted EPS`,
+       "basic_w_avg_shares" = `Basic W. Average Shares Outstanding`,
+       "diluted_w_avg_shares" = `Diluted W. Average Shares Outstanding`,
+       "ebitda" = `EBITDA`
+    )
+    return(df)
   }
-
-  df <- df %>% 
-   mutate(year = substrEnd(date,4))
- 
-  df <- df %>% rename(
-     "revenue"=`Total Revenue`,
-     "cost_revenue" = `Cost of Revenue`,
-     "gross_profit" = `Gross Profit`,
-     "r&d" = `Research Development`,
-     "sg&a" = `Selling General and Administrative`,
-     "operating_expenses" = `Total Operating Expenses`,
-     "ebit" = `Operating Income or Loss`,
-     "interest_expense" = `Interest Expense`,
-     "other_income_net" = `Total Other Income/Expenses Net`,
-     "ebt" = `Income Before Tax`,
-     "tax" = `Income Tax Expense`,
-     "income_operations" = `Income from Continuing Operations`,
-     "ni" = `Net Income`,
-     "ni_to_shareholders" = `Net Income available to common shareholders`,
-     "basic_eps" = `Basic EPS`,
-     "diluted_eps" = `Diluted EPS`,
-     "basic_w_avg_shares" = `Basic W. Average Shares Outstanding`,
-     "diluted_w_avg_shares" = `Diluted W. Average Shares Outstanding`,
-     "ebitda" = `EBITDA`
-  )
- 
   
-  assign(paste0(ticker,"_income_tidy"),df)
-
-```
-
-
-
-
-
-```{r}
-AAPL_income_tidy <- AAPL_income %>% 
-    pivot_longer(c(2:6), names_to="date") %>% 
-    pivot_wider(names_from = Breakdown)
-
-
   
-```
+  
+  getIncomeRaw <- function(ticker) {
+    df <- scrape(ticker)
+    assign(paste0(ticker,"_income_raw"),df,envir = .GlobalEnv)
+  }
+  
+  getIncomeClean <- function(ticker){
+    df <- scrape(ticker) %>% 
+      clean()
+    assign(paste0(ticker,"_income_clean"),df,envir = .GlobalEnv)
+  }  
 
-
-
-
-```{r}
-substrEnd <- function(x, n){
-  substr(x, nchar(x)-n+1, nchar(x))
+  getIncomeTidy <- function(ticker) {
+    df <- scrape(ticker) %>% 
+      clean() %>% 
+      tidy()
+    assign(paste0(ticker,"_income"),df,envir = .GlobalEnv)
+  }
+  
+  
+  
+  ###################
+  
+  if (format=="tidy") {
+    getIncomeTidy(ticker)
+  } else if (format=="clean") {
+    getIncomeClean(ticker)
+  } else if (format=="raw") {
+    getIncomeRaw(ticker)
+  } else {
+    stop('Format can only be "tidy", "clean", or "raw".')
+  }
+  
 }
-
-AAPL_income_tidy %>% 
-  mutate(
-    year = substrEnd(date,4)
-   
-  )
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+#Release Function
+getIncomeTest <- function (ticker, format = "tidy") {
+  
+  scrape <- function (ticker) {
+    yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
+    page <- read_html(yfin_url)
+    nodes <- page %>%html_nodes(".fi-row")
+    df = NULL
+    
+    for(i in nodes){
+    r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+    df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+    }
+    
+    matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+    headers <- c('Items','TTM', matches[[1]][,1]) 
+    names(df) <- headers
+    return(df)
+  }
+  
+
+  clean <- function (df) {
+    df<- na_if(df,"-")
+    df <- df %>%
+       mutate_at(2:ncol(df), parse_number)
+    
+    df[17, 1] <- "Basic EPS"
+    df[18, 1] <- "Diluted EPS"
+    df[20, 1] <- "Basic W. Average Shares Outstanding"
+    df[21, 1] <- "Diluted W. Average Shares Outstanding"
+    
+    df <- df %>% dplyr::filter(Items != "Operating Expenses" & Items != "Reported EPS"  & Items != "Weighted average shares outstanding")
+    return(df)
+  }
+  
+  
+  tidy <- function (df) {
+    df <- df %>% 
+    pivot_longer(c(2:ncol(df)), names_to="date") %>% 
+    pivot_wider(names_from = Items)
+  
+    substrEnd <- function(x, n){
+    substr(x, nchar(x)-n+1, nchar(x))
+    }
+  
+    df <- df %>% 
+     mutate(ticker=ticker,
+            year = substrEnd(date,4))
+    
+    df <- df %>% 
+      select(ticker, date, year, everything())
+    
+  
+    df <- df %>% rename(
+       "revenue"=`Total Revenue`,
+       "cost_revenue" = `Cost of Revenue`,
+       "gross_profit" = `Gross Profit`,
+       "r&d" = `Research Development`,
+       "sg&a" = `Selling General and Administrative`,
+       "operating_expenses" = `Total Operating Expenses`,
+       "ebit" = `Operating Income or Loss`,
+       "interest_expense" = `Interest Expense`,
+       "other_income_net" = `Total Other Income/Expenses Net`,
+       "ebt" = `Income Before Tax`,
+       "tax" = `Income Tax Expense`,
+       "income_operations" = `Income from Continuing Operations`,
+       "ni" = `Net Income`,
+       "ni_to_shareholders" = `Net Income available to common shareholders`,
+       "basic_eps" = `Basic EPS`,
+       "diluted_eps" = `Diluted EPS`,
+       "basic_w_avg_shares" = `Basic W. Average Shares Outstanding`,
+       "diluted_w_avg_shares" = `Diluted W. Average Shares Outstanding`,
+       "ebitda" = `EBITDA`
+    )
+    return(df)
+  }
+  
+  
+  
+  getIncomeRaw <- function(ticker) {
+    df <- scrape(ticker)
+    assign(paste0(ticker,"_income_raw"),df,envir = .GlobalEnv)
+  }
+  
+  getIncomeClean <- function(ticker){
+    df <- scrape(ticker) %>% 
+      clean()
+    assign(paste0(ticker,"_income_clean"),df,envir = .GlobalEnv)
+  }  
+
+  getIncomeTidy <- function(ticker) {
+    df <- scrape(ticker) %>% 
+      clean() %>% 
+      tidy()
+    assign(paste0(ticker,"_income"),df,envir = .GlobalEnv)
+  }
+  
+  
+  
+  ###################
+  
+  if (format=="tidy") {
+    getIncomeTidy(ticker)
+  } else if (format=="clean") {
+    getIncomeClean(ticker)
+  } else if (format=="raw") {
+    getIncomeRaw(ticker)
+  } else {
+    stop('Format can only be "tidy", "clean", or "raw".')
+  }
+  
+}
+```
+
+
+```{r}
+getIncome("LRCX")
+```
+
+
+
+
+
+
+
 
 
 
