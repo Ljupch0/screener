@@ -98,6 +98,10 @@ unique(russell3000$sector)
 
 
 
+```{r}
+
+sp500 <- tq_index("s&p500")
+```
 
 
 
@@ -109,21 +113,27 @@ unique(russell3000$sector)
 getIncome <- function (ticker, format = "tidy") {
   
   scrape <- function (ticker) {
-    yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
-    page <- read_html(yfin_url)
-    nodes <- page %>%html_nodes(".fi-row")
-    df = NULL
-    
-    for(i in nodes){
-    r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-    df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+    repeat {
+    tmp<-try({
+      yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
+      page <- read_html(yfin_url)
+      nodes <- page %>%html_nodes(".fi-row")
+      df = NULL
+      
+      for(i in nodes){
+      r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+      df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+      }
+      
+      matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+      headers <- c('Items','TTM', matches[[1]][,1]) 
+      names(df) <- headers
+      return(df)
+      })
     }
-    
-    matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-    headers <- c('Items','TTM', matches[[1]][,1]) 
-    names(df) <- headers
-    return(df)
-  }
+    if (!(inherits(tmp,"try-error"))) 
+      break
+    }
   
 
   clean <- function (df) {
@@ -186,20 +196,23 @@ getIncome <- function (ticker, format = "tidy") {
   
   getIncomeRaw <- function(ticker) {
     df <- scrape(ticker)
-    assign(paste0(ticker,"_income_raw"),df,envir = .GlobalEnv)
+    return(df)
+    #assign(paste0(ticker,"_income_raw"),df,envir = .GlobalEnv)
   }
   
   getIncomeClean <- function(ticker){
     df <- scrape(ticker) %>% 
       clean()
-    assign(paste0(ticker,"_income_clean"),df,envir = .GlobalEnv)
+    return(df)
+    #assign(paste0(ticker,"_income_clean"),df,envir = .GlobalEnv)
   }  
 
   getIncomeTidy <- function(ticker) {
     df <- scrape(ticker) %>% 
       clean() %>% 
       tidy()
-    assign(paste0(ticker,"_income"),df,envir = .GlobalEnv)
+    return(df)
+    #assign(paste0(ticker,"_income"),df,envir = .GlobalEnv)
   }
   
   
@@ -228,186 +241,6 @@ getIncome("KO", format="tidy")
 
 
 
-
-
-```{r}
-#test Function
-getIncomeTest <- function (ticker, format = "tidy") {
-  
-  scrape <- function (ticker) {
-    yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials?p=",ticker)
-    page <- read_html(yfin_url)
-    nodes <- page %>%html_nodes(".fi-row")
-    df = NULL
-    
-    for(i in nodes){
-    r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-    df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
-    }
-    
-    matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-    headers <- c('Items','TTM', matches[[1]][,1]) 
-    names(df) <- headers
-    return(df)
-  }
-  
-
-  clean <- function (df) {
-    df<- na_if(df,"-")
-    df <- df %>%
-       mutate_at(2:ncol(df), parse_number)
-    
-    df[17, 1] <- "Basic EPS"
-    df[18, 1] <- "Diluted EPS"
-    df[20, 1] <- "Basic W. Average Shares Outstanding"
-    df[21, 1] <- "Diluted W. Average Shares Outstanding"
-    
-    df <- df %>% dplyr::filter(Items != "Operating Expenses" & Items != "Reported EPS"  & Items != "Weighted average shares outstanding")
-    return(df)
-  }
-  
-  
-  tidy <- function (df) {
-    df <- df %>% 
-    pivot_longer(c(2:ncol(df)), names_to="date") %>% 
-    pivot_wider(names_from = Items)
-  
-    substrEnd <- function(x, n){
-    substr(x, nchar(x)-n+1, nchar(x))
-    }
-  
-    df <- df %>% 
-     mutate(ticker=ticker,
-            year = substrEnd(date,4))
-    
-    df <- df %>% 
-     select(ticker, date, year, everything())
-    
-  
-    df <- df %>% dplyr::rename(
-       "revenue"=`Total Revenue`,
-       "cost_revenue" = `Cost of Revenue`,
-       "gross_profit" = `Gross Profit`,
-       "r&d" = `Research Development`,
-       "sg&a" = `Selling General and Administrative`,
-       "operating_expenses" = `Total Operating Expenses`,
-       "ebit" = `Operating Income or Loss`,
-       "interest_expense" = `Interest Expense`,
-       "other_income_net" = `Total Other Income/Expenses Net`,
-       "ebt" = `Income Before Tax`,
-       "tax" = `Income Tax Expense`,
-       "income_operations" = `Income from Continuing Operations`,
-       "ni" = `Net Income`,
-       "ni_to_shareholders" = `Net Income available to common shareholders`,
-       "basic_eps" = `Basic EPS`,
-       "diluted_eps" = `Diluted EPS`,
-       "basic_w_avg_shares" = `Basic W. Average Shares Outstanding`,
-       "diluted_w_avg_shares" = `Diluted W. Average Shares Outstanding`,
-       "ebitda" = `EBITDA`
-    )
-    return(df)
-  }
-  
-  
-  
-  getIncomeRaw <- function(ticker) {
-    df <- scrape(ticker)
-    assign(paste0(ticker,"_income_raw"),df,envir = .GlobalEnv)
-  }
-  
-  getIncomeClean <- function(ticker){
-    df <- scrape(ticker) %>% 
-      clean()
-    assign(paste0(ticker,"_income_clean"),df,envir = .GlobalEnv)
-  }  
-
-  getIncomeTidy <- function(ticker) {
-    df <- scrape(ticker) %>% 
-      clean() %>% 
-      tidy()
-    assign(paste0(ticker,"_income"),df,envir = .GlobalEnv)
-  }
-  
-  
-  
-  ###################
-  
-  if (format=="tidy") {
-    for (i in ticker) {
-    getIncomeTidy(i)
-      }
-    
-  } else if (format=="clean") {
-    getIncomeClean(ticker)
-    
-  } else if (format=="raw") {
-    getIncomeRaw(ticker)
-  } else {
-    stop('Format can only be "tidy", "clean", or "raw".')
-  }
-  
-}
-
-```
-
-
-```{r}
-getIncomeMultiple <- function (ticker) {
-  for (i in ticker){
-    getIncome(i)
-  }
-  ticker_statements <- vector()
-  for (i in ticker){
-    ticker_statements[i]=paste0(i, "_income")
-  }
-  income_sta
-  tements bind_rows(ticker_statements)
-}
-```
-
-
-
-
-```{r}
-getIncomeMultiple(c("BAC", "JPM"))
-```
-
-
-
-```{r}
-ticker <- c("JPM", "BAC")
-
-for (i in ticker){
-    getIncome(i)
-  }
-  ticker_statements <- vector()
-  for (i in ticker){
-    ticker_statements[i]=paste0(i, "_income")
-    ticker_statements <- nchar(unlist(lapply(ticker_statements,function(s) eval(parse(text=s)))))
-  }
-  income_statements <- bind_rows(ticker_statements)
-
-```
-
-
-
-```{r}
-AAPL_income %>% 
-  dplyr::filter(year=="2018") %>% 
-  transmute(
-    marza = gross_profit/revenue
-  )
-```
-
-
-
-```{r}
-getIncome("AAPL")
-```
-
-```{r}
-getFinancials("AAPL")
-```
 
 
 
@@ -465,7 +298,7 @@ getIncome("FB", format="raw")
 
 
 ```{r}
-company <- "fb"
+company <- c("fb", "msft")
 report <- "yearly"
 
 url <- paste0("https://query2.finance.yahoo.com/v10/finance/quoteSummary/",ticker,"?modules=incomeStatementHistory")
@@ -514,8 +347,65 @@ df <- df %>%
 ```
 
 
+
+
 ```{r}
-glimpse(df)
+
+getIncomeJSON <- function (ticker, report="yearly") {
+  url <- paste0("https://query2.finance.yahoo.com/v10/finance/quoteSummary/",ticker,"?modules=incomeStatementHistory")
+  url_q <- paste0("https://query2.finance.yahoo.com/v10/finance/quoteSummary/",ticker,"?modules=incomeStatementHistoryQuarterly")
+  
+  ifelse(report=="yearly" | report=="y", df <- read_json(url), 
+         ifelse(report=="quarterly" | report=="q", df <- read_json(url_q),
+                stop('Report type can only be "yearly", "y", "quarterly" or "q".')))
+  l <- list()
+  
+  for (i in 1:length(df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory)) {
+    l[[i]] <- df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory[i] %>% 
+    unlist %>% 
+    enframe %>% 
+    pivot_wider(names_from = name, values_from = value)
+  }
+  df <- bind_rows(l) %>% 
+    select(endDate.fmt,ends_with(".raw"), -endDate.raw)
+  
+  df <- df %>% dplyr::transmute(
+    date = parse_date(endDate.fmt, format ="%Y-%m-%d"),
+    revenue = parse_number(totalRevenue.raw),
+    cost_revenue= parse_number(costOfRevenue.raw),
+    gross_profit = parse_number(grossProfit.raw),
+    rd = parse_number(researchDevelopment.raw),
+    sga = parse_number(sellingGeneralAdministrative.raw),
+    operating_expenses = parse_number(totalOperatingExpenses.raw),
+    operating_income = parse_number(operatingIncome.raw),
+    other_income = parse_number(totalOtherIncomeExpenseNet.raw),
+    ebit = parse_number(ebit.raw),
+    interest_expense = parse_number(interestExpense.raw),
+    ebt = parse_number(incomeBeforeTax.raw),
+    tax = parse_number(incomeTaxExpense.raw),
+    ni_operations = parse_number(netIncomeFromContinuingOps.raw),
+    ni = parse_number(netIncome.raw),
+    ni_to_shareholders = parse_number(netIncomeApplicableToCommonShares.raw)
+  )
+  
+  df <- df %>% 
+    mutate(
+      ticker = toupper(ticker),
+      year = as.integer(format(date, "%Y")),
+      report = ifelse(report=="yearly" | report=="y", "yearly","quarterly")
+    ) %>% 
+    select (ticker, year, date, report, everything())
+  
+  return(df)
+   
+}
+
+
+```
+
+
+```{r}
+testJSON <- getIncomeJSON("FB")
 ```
 
 
@@ -524,20 +414,106 @@ glimpse(df)
 
 
 
-
-
 ```{r}
-df7 %>% 
-  select(ends_with(".raw"))
+
+tickers = c("FB","GOOG")
+
+list <- lapply(X=ticker, FUN=getIncomeJSON)
+
+assign(income_statements, bind_rows(list), envir=.GlobalEnv)
+
+  
 ```
 
 
 ```{r}
-getIncome("aapl")
+
+getIncome <- function (ticker, report="yearly") {
+  
+  
+  getIncomeJSON <- function (ticker, report) {
+  url <- paste0("https://query2.finance.yahoo.com/v10/finance/quoteSummary/",ticker,"?modules=incomeStatementHistory")
+  url_q <- paste0("https://query2.finance.yahoo.com/v10/finance/quoteSummary/",ticker,"?modules=incomeStatementHistoryQuarterly")
+  
+  ifelse(report=="yearly" | report=="y", df <- read_json(url), 
+         ifelse(report=="quarterly" | report=="q", df <- read_json(url_q),
+                stop('Report type can only be "yearly", "y", "quarterly" or "q".')))
+  l <- list()
+  
+  for (i in 1:length(df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory)) {
+    l[[i]] <- df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory[i] %>% 
+    unlist %>% 
+    enframe %>% 
+    pivot_wider(names_from = name, values_from = value)
+  }
+  df <- bind_rows(l) %>% 
+    select(endDate.fmt,ends_with(".raw"), -endDate.raw)
+  
+  df <- df %>% dplyr::transmute(
+    date = parse_date(endDate.fmt, format ="%Y-%m-%d"),
+    revenue = parse_number(totalRevenue.raw),
+    cost_revenue= parse_number(costOfRevenue.raw),
+    gross_profit = parse_number(grossProfit.raw),
+    rd = parse_number(researchDevelopment.raw),
+    sga = parse_number(sellingGeneralAdministrative.raw),
+    operating_expenses = parse_number(totalOperatingExpenses.raw),
+    operating_income = parse_number(operatingIncome.raw),
+    other_income = parse_number(totalOtherIncomeExpenseNet.raw),
+    ebit = parse_number(ebit.raw),
+    interest_expense = parse_number(interestExpense.raw),
+    ebt = parse_number(incomeBeforeTax.raw),
+    tax = parse_number(incomeTaxExpense.raw),
+    ni_operations = parse_number(netIncomeFromContinuingOps.raw),
+    ni = parse_number(netIncome.raw),
+    ni_to_shareholders = parse_number(netIncomeApplicableToCommonShares.raw)
+  )
+  
+  df <- df %>% 
+    mutate(
+      ticker = toupper(ticker),
+      year = as.integer(format(date, "%Y")),
+      report = ifelse(report=="yearly" | report=="y", "yearly","quarterly")
+    ) %>% 
+    select (ticker, year, date, report, everything())
+  
+  return(df)
+   
+  }
+  
+  list <- lapply(X=ticker, FUN=getIncomeJSON(ticker=ticker, report=report))
+
+  assign("income_statements", bind_rows(list), envir=.GlobalEnv)
+  
+}
 ```
 
 
 
+
+```{r}
+companies=c("FB", "GOOG")
+
+getIncomeMultiple <- function (tickers) {
+  list <- lapply(X=tickers, FUN=getIncome)
+
+  assign("income_statements", bind_rows(list), envir=.GlobalEnv)
+  
+}
+
+getIncomeMultiple(sp500$symbol[1:50])
+
+  
+```
+
+```{r}
+income_statements %>% 
+  dplyr::filter(year=="2018") %>% 
+  transmute(
+    ticker=ticker,
+    ebit_margin=ebit/revenue,
+    `r&d_percentage_expenses` = `r&d`/operating_expenses
+  )
+```
 
 
 
