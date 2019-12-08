@@ -1,0 +1,254 @@
+---
+title: "financials"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+getIncome <- function (ticker, format = "tidy") {
+  
+  scrape <- function (ticker) {
+    repeat {
+    tmp<-try({
+      yfin_url <- paste0("https://finance.yahoo.com/quote/",ticker,"/financials")
+      page <- read_html(yfin_url)
+      nodes <- page %>%html_nodes(".fi-row")
+      df = NULL
+      
+      for(i in nodes){
+      r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+      df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+      }
+      
+      matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+      headers <- c('Items','TTM', matches[[1]][,1]) 
+      names(df) <- headers
+      return(df)
+      }, silent=TRUE)
+    }
+    if (!(inherits(tmp,"try-error"))) 
+      break
+    }
+  
+
+  clean <- function (df) {
+    df<- na_if(df,"-")
+    df <- df %>%
+       mutate_at(2:ncol(df), parse_number)
+    
+    df[17, 1] <- "Basic EPS"
+    df[18, 1] <- "Diluted EPS"
+    df[20, 1] <- "Basic W. Average Shares Outstanding"
+    df[21, 1] <- "Diluted W. Average Shares Outstanding"
+    
+    df <- df %>% dplyr::filter(Items != "Operating Expenses" & Items != "Reported EPS"  & Items != "Weighted average shares outstanding")
+    return(df)
+  }
+  
+  
+  tidy <- function (df) {
+    df <- df %>% 
+    pivot_longer(c(2:ncol(df)), names_to="date") %>% 
+    pivot_wider(names_from = Items)
+  
+    substrEnd <- function(x, n){
+    substr(x, nchar(x)-n+1, nchar(x))
+    }
+  
+    df <- df %>% 
+     mutate(ticker=toupper(ticker),
+            year = substrEnd(date,4))
+    
+    df <- df %>% 
+     select(ticker, date, year, everything())
+    
+  
+    df <- df %>% dplyr::rename(
+       "revenue"=`Total Revenue`,
+       "cost_revenue" = `Cost of Revenue`,
+       "gross_profit" = `Gross Profit`,
+       "r&d" = `Research Development`,
+       "sg&a" = `Selling General and Administrative`,
+       "operating_expenses" = `Total Operating Expenses`,
+       "ebit" = `Operating Income or Loss`,
+       "interest_expense" = `Interest Expense`,
+       "other_income_net" = `Total Other Income/Expenses Net`,
+       "ebt" = `Income Before Tax`,
+       "tax" = `Income Tax Expense`,
+       "income_operations" = `Income from Continuing Operations`,
+       "ni" = `Net Income`,
+       "ni_to_shareholders" = `Net Income available to common shareholders`,
+       "basic_eps" = `Basic EPS`,
+       "diluted_eps" = `Diluted EPS`,
+       "basic_w_avg_shares" = `Basic W. Average Shares Outstanding`,
+       "diluted_w_avg_shares" = `Diluted W. Average Shares Outstanding`,
+       "ebitda" = `EBITDA`
+    )
+    return(df)
+  }
+  
+  
+  if (format=="tidy") {
+    assign(paste0(tolower(ticker),"_income"), tidy(clean(scrape(ticker))),envir = .GlobalEnv)
+  } else if (format=="clean") {
+    assign(paste0(tolower(ticker),"_income_clean"), clean(scrape(ticker)),envir = .GlobalEnv)
+  } else if (format=="raw") {
+    assign(paste0(tolower(ticker),"_income_raw"), scrape(ticker), envir = .GlobalEnv)
+  } else {
+    stop('Format can only be "tidy", "clean", or "raw".')
+  }
+  
+}
+```
+
+
+
+```{r}
+getCashFlow <- function (ticker, format="tidy") {
+  
+  scrape <- function (ticker) {
+    repeat {
+    tmp<-try({
+      url <- paste0("https://finance.yahoo.com/quote/",ticker,"/cash-flow")
+      page <- read_html(url)
+      nodes <- page %>%html_nodes(".fi-row")
+      df = NULL
+      
+      for(i in nodes){
+      r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+      df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+      }
+      
+      matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+      headers <- c('Items','TTM', matches[[1]][,1]) 
+      names(df) <- headers
+      return(df)
+      }, silent=TRUE)
+    }
+    if (!(inherits(tmp,"try-error"))) 
+      break
+    }
+  
+
+  clean <- function (df) {
+    df <- df %>% 
+      dplyr::filter(Items != "Cash flows from operating activities"
+                    & Items != "Cash flows from investing activities "
+                    & Items != "Cash flows from financing activities")
+    df <- df[-c(27),]
+    df<- na_if(df,"-")
+    df <- df %>%
+       mutate_at(2:ncol(df), parse_number)
+  }
+  
+  
+  tidy <- function (df) {
+    df <- df %>% 
+      pivot_longer(c(2:ncol(df)), names_to="date") %>% 
+      pivot_wider(names_from = Items)
+    
+    df <- df %>% 
+      select(-`Operating Cash Flow`)
+    
+    df <- df %>% dplyr::rename(
+      "ni" = `Net Income`,
+      "da" = `Depreciation & amortization`,
+      "deferred_taxes"=`Deferred income taxes`,
+      "stock_comp" = `Stock based compensation`,
+      "change_working_capital" = `Change in working capital`,
+      "receivables" = `Accounts receivable`,
+      "inventory" = `Inventory`,
+      "payables" = `Accounts Payable`,
+      "other_working_capital" = `Other working capital`,
+      "other_non_cash" = `Other non-cash items`,
+      "operating_cf" = `Net cash provided by operating activites`,
+      "ppe_investment" = `Investments in property, plant and equipment`,
+      "acquisitions" = `Acquisitions, net`,
+      "purchases_investments" = `Purchases of investments`,
+      "sales_investments" = `Sales/Maturities of investments`,
+      "other_investing" = `Other investing activites`,
+      "investing_cf" = `Net cash used for investing activites`,
+      "debt_repayment" = `Debt repayment`,
+      "stock_issued" = `Common stock issued`,
+      "stock_repurchased" = `Common stock repurchased`,
+      "dividends_paid" = `Dividends Paid`,
+      "other_financing" = `Other financing activites`,
+      "financing_cf" = `Net cash used privided by (used for) financing activities`,
+      "change_cash" = `Net change in cash`,
+      "cash_start_period" = `Cash at beginning of period`,
+      "cash_end_period" = `Cash at end of period`,
+      "capex" = `Capital Expenditure`,
+      "fcf" = `Free Cash Flow`
+    )
+    substrEnd <- function(x, n){
+    substr(x, nchar(x)-n+1, nchar(x))
+    }
+  
+    df <- df %>% 
+     mutate(ticker=toupper(ticker),
+            year = substrEnd(date,4))
+    
+    df <- df %>% 
+     select(ticker, date, year, everything())
+    
+    return(df)
+  }
+  
+
+  
+  if (format=="tidy") {
+    assign(paste0(tolower(ticker),"_cf"), tidy(clean(scrape(ticker))), envir = .GlobalEnv)
+  } else if (format=="clean") {
+    assign(paste0(tolower(ticker),"_cf_clean"), clean(scrape(ticker)), envir = .GlobalEnv)
+  } else if (format=="raw") {
+    assign(paste0(tolower(ticker), "_cf_raw"), scrape(ticker), envir = .GlobalEnv)
+  } else {
+    stop('Format can only be "tidy", "clean", or "raw".')
+  }
+  
+
+}
+```
+
+
+
+
+
+
+```{r}
+getCashFlow("DIS", "clean")
+getIncome("V", "raw")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
