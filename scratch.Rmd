@@ -297,55 +297,6 @@ getIncome("FB", format="raw")
 
 
 
-```{r}
-company <- c("fb", "msft")
-report <- "yearly"
-
-url <- paste0("https://query2.finance.yahoo.com/v10/finance/quoteSummary/",ticker,"?modules=incomeStatementHistory")
-url_quarterly <- paste0("https://query2.finance.yahoo.com/v10/finance/quoteSummary/",ticker,"?modules=incomeStatementHistoryQuarterly")
-
-df <- read_json(url)
-l <- list()
-
-for (i in 1:length(df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory)) {
-  l[[i]] <- df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory[i] %>% 
-  unlist %>% 
-  enframe %>% 
-  pivot_wider(names_from = name, values_from = value)
-}
-df <- bind_rows(l) %>% 
-  select(endDate.fmt,ends_with(".raw"), -endDate.raw)
-
-df <- df %>% dplyr::transmute(
-  date = parse_date(endDate.fmt, format ="%Y-%m-%d"),
-  revenue = parse_number(totalRevenue.raw),
-  cost_revenue= parse_number(costOfRevenue.raw),
-  gross_profit = parse_number(grossProfit.raw),
-  rd = parse_number(researchDevelopment.raw),
-  sga = parse_number(sellingGeneralAdministrative.raw),
-  operating_expenses = parse_number(totalOperatingExpenses.raw),
-  operating_income = parse_number(operatingIncome.raw),
-  other_income = parse_number(totalOtherIncomeExpenseNet.raw),
-  ebit = parse_number(ebit.raw),
-  interest_expense = parse_number(interestExpense.raw),
-  ebt = parse_number(incomeBeforeTax.raw),
-  tax = parse_number(incomeTaxExpense.raw),
-  ni_operations = parse_number(netIncomeFromContinuingOps.raw),
-  ni = parse_number(netIncome.raw),
-  ni_to_shareholders = parse_number(netIncomeApplicableToCommonShares.raw)
-)
-
-df <- df %>% 
-  mutate(
-    ticker=toupper(company),
-    year = as.integer(format(date, "%Y")),
-    report=report
-  ) %>% 
-  select (ticker, year, date, report, everything())
-
-
-```
-
 
 
 
@@ -405,7 +356,7 @@ getIncomeJSON <- function (ticker, report="yearly") {
 
 
 ```{r}
-testJSON <- getIncomeJSON("FB")
+testJSON <- getIncomeJSON(c("GOOG", "MSFT", "FB"), report="yearly")
 ```
 
 
@@ -428,7 +379,7 @@ assign(income_statements, bind_rows(list), envir=.GlobalEnv)
 
 ```{r}
 
-getIncome <- function (ticker, report="yearly") {
+getIncomeJSON <- function (ticker, report="yearly") {
   
   
   getIncomeJSON <- function (ticker, report) {
@@ -449,12 +400,15 @@ getIncome <- function (ticker, report="yearly") {
   df <- bind_rows(l) %>% 
     select(endDate.fmt,ends_with(".raw"), -endDate.raw)
   
+    
+    ifelse("researchDevelopment.raw" %in% colnames(df), df <- df %>% mutate(rd = parse_number(researchDevelopment.raw)), df <- df %>%  mutate(rd=NA))
+  
   df <- df %>% dplyr::transmute(
     date = parse_date(endDate.fmt, format ="%Y-%m-%d"),
     revenue = parse_number(totalRevenue.raw),
     cost_revenue= parse_number(costOfRevenue.raw),
     gross_profit = parse_number(grossProfit.raw),
-    rd = parse_number(researchDevelopment.raw),
+    rd = rd,
     sga = parse_number(sellingGeneralAdministrative.raw),
     operating_expenses = parse_number(totalOperatingExpenses.raw),
     operating_income = parse_number(operatingIncome.raw),
@@ -468,6 +422,8 @@ getIncome <- function (ticker, report="yearly") {
     ni_to_shareholders = parse_number(netIncomeApplicableToCommonShares.raw)
   )
   
+
+  
   df <- df %>% 
     mutate(
       ticker = toupper(ticker),
@@ -480,7 +436,7 @@ getIncome <- function (ticker, report="yearly") {
    
   }
   
-  list <- lapply(X=ticker, FUN=getIncomeJSON(ticker=ticker, report=report))
+  list <- lapply(X=ticker, FUN=getIncomeJSON, report=report)
 
   assign("income_statements", bind_rows(list), envir=.GlobalEnv)
   
@@ -495,7 +451,6 @@ companies=c("FB", "GOOG")
 
 getIncomeMultiple <- function (tickers) {
   list <- lapply(X=tickers, FUN=getIncome)
-
   assign("income_statements", bind_rows(list), envir=.GlobalEnv)
   
 }
@@ -504,6 +459,9 @@ getIncomeMultiple(sp500$symbol[1:50])
 
   
 ```
+
+
+
 
 ```{r}
 income_statements %>% 
@@ -514,6 +472,58 @@ income_statements %>%
     `r&d_percentage_expenses` = `r&d`/operating_expenses
   )
 ```
+
+
+
+
+
+
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
