@@ -356,12 +356,23 @@ getIncomeJSON <- function (ticker, report="yearly") {
 
 
 ```{r}
-testJSON <- getIncomeJSON(c("GOOG", "MSFT", "FB"), report="yearly")
+stocks <- sp500$symbol
+stocks <- stocks[50:100]
+problem <- "BRK.B"
 ```
 
 
 
 
+```{r}
+
+brk.b <- read_json('https://query2.finance.yahoo.com/v10/finance/quoteSummary/BRK.B?modules=incomeStatementHistory')
+
+fb <- read_json('https://query2.finance.yahoo.com/v10/finance/quoteSummary/FB?modules=incomeStatementHistory')
+
+
+length(brk.b$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory)
+```
 
 
 
@@ -379,7 +390,7 @@ assign(income_statements, bind_rows(list), envir=.GlobalEnv)
 
 ```{r}
 
-getIncomeJSON <- function (ticker, report="yearly") {
+getIncomeV2 <- function (ticker, report="yearly") {
   
   
   getIncomeJSON <- function (ticker, report) {
@@ -389,52 +400,105 @@ getIncomeJSON <- function (ticker, report="yearly") {
   ifelse(report=="yearly" | report=="y", df <- read_json(url), 
          ifelse(report=="quarterly" | report=="q", df <- read_json(url_q),
                 stop('Report type can only be "yearly", "y", "quarterly" or "q".')))
+  
+  
   l <- list()
   
-  for (i in 1:length(df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory)) {
-    l[[i]] <- df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory[i] %>% 
-    unlist %>% 
-    enframe %>% 
-    pivot_wider(names_from = name, values_from = value)
-  }
-  df <- bind_rows(l) %>% 
-    select(endDate.fmt,ends_with(".raw"), -endDate.raw)
+  ifelse(
+    length(df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory)!=0,
+    {for (i in 1:length(df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory)) {
+      l[[i]] <- df$quoteSummary$result[[1]]$incomeStatementHistory$incomeStatementHistory[i] %>% 
+      unlist %>% 
+      enframe %>% 
+      pivot_wider(names_from = name, values_from = value)}
+    df <- bind_rows(l) 
+      }, df <- tibble(ticker))
   
-    
-    ifelse("researchDevelopment.raw" %in% colnames(df), df <- df %>% mutate(rd = parse_number(researchDevelopment.raw)), df <- df %>%  mutate(rd=NA))
   
-  df <- df %>% dplyr::transmute(
-    date = parse_date(endDate.fmt, format ="%Y-%m-%d"),
-    revenue = parse_number(totalRevenue.raw),
-    cost_revenue= parse_number(costOfRevenue.raw),
-    gross_profit = parse_number(grossProfit.raw),
-    rd = rd,
-    sga = parse_number(sellingGeneralAdministrative.raw),
-    operating_expenses = parse_number(totalOperatingExpenses.raw),
-    operating_income = parse_number(operatingIncome.raw),
-    other_income = parse_number(totalOtherIncomeExpenseNet.raw),
-    ebit = parse_number(ebit.raw),
-    interest_expense = parse_number(interestExpense.raw),
-    ebt = parse_number(incomeBeforeTax.raw),
-    tax = parse_number(incomeTaxExpense.raw),
-    ni_operations = parse_number(netIncomeFromContinuingOps.raw),
-    ni = parse_number(netIncome.raw),
-    ni_to_shareholders = parse_number(netIncomeApplicableToCommonShares.raw)
-  )
   
+  ifelse("endDate.fmt" %in% colnames(df),
+         df <- df %>%  mutate(date = parse_date(endDate.fmt, format ="%Y-%m-%d")),
+         df <- df %>%  mutate(date=NA))
+  
+  ifelse("totalRevenue.raw" %in% colnames(df),
+         df <- df %>% mutate(revenue = parse_number(totalRevenue.raw)),
+         df <- df %>% mutate(revenue=NA))
+  
+  ifelse("costOfRevenue.raw" %in% colnames(df),
+         df <- df %>% mutate(cost_revenue= parse_number(costOfRevenue.raw)),
+         df <- df %>% mutate(cost_revenue=NA))
+  
+  ifelse("grossProfit.raw" %in% colnames(df),
+         df <- df %>% mutate(gross_profit = parse_number(grossProfit.raw)),
+         df <- df %>% mutate(gross_profit=NA))
+  
+  ifelse("researchDevelopment.raw" %in% colnames(df),
+         df <- df %>% mutate(rd = parse_number(researchDevelopment.raw)),
+         df <- df %>%  mutate(rd=NA))
+  
+  ifelse("sellingGeneralAdministrative.raw" %in% colnames(df),
+         df <- df %>% mutate(sga = parse_number(sellingGeneralAdministrative.raw)),
+         df <- df %>% mutate(sga=NA))
+  
+  ifelse("totalOperatingExpenses.raw" %in% colnames(df),
+         df <- df %>% mutate(operating_expenses = parse_number(totalOperatingExpenses.raw)),
+         df <- df %>% mutate(operating_expenses=NA))
+  
+  ifelse("operatingIncome.raw" %in% colnames(df),
+         df <- df %>% mutate(operating_income = parse_number(operatingIncome.raw)),
+         df <- df %>% mutate(operating_income = NA))
+  
+  ifelse("totalOtherIncomeExpenseNet.raw" %in% colnames(df),
+         df <- df %>% mutate(other_income = parse_number(totalOtherIncomeExpenseNet.raw)),
+         df <- df %>% mutate(other_income=NA))
+  
+  ifelse("ebit.raw" %in% colnames(df),
+         df <- df %>% mutate(ebit = parse_number(ebit.raw)),
+         df <- df %>% mutate(ebit = NA))
+  
+  ifelse("interestExpense.raw" %in% colnames(df),
+         df <- df %>% mutate(interest_expense = parse_number(interestExpense.raw)),
+         df <- df %>% mutate(interest_expense = NA))
+  
+  ifelse("incomeBeforeTax.raw" %in% colnames(df),
+         df <- df %>% mutate(ebt = parse_number(incomeBeforeTax.raw)),
+         df <- df %>% mutate(ebt = NA))
+  
+  ifelse("incomeTaxExpense.raw" %in% colnames(df),
+         df <- df %>% mutate(tax = parse_number(incomeTaxExpense.raw)),
+         df <- df %>% mutate(tax = NA))
+  
+  ifelse("netIncomeFromContinuingOps.raw" %in% colnames(df),
+         df <- df %>% mutate(ni_operations = parse_number(netIncomeFromContinuingOps.raw)),
+         df <- df %>% mutate(ni_operations = NA))
+  
+  ifelse("netIncome.raw" %in% colnames(df),
+         df <- df %>% mutate(ni = parse_number(netIncome.raw)),
+         df <- df %>% mutate(ni = NA))
+  
+  ifelse("netIncomeApplicableToCommonShares.raw" %in% colnames(df),
+         df <- df %>% mutate(ni_to_shareholders = parse_number(netIncomeApplicableToCommonShares.raw)),
+         df <- df %>% mutate(ni_to_shareholders = NA))
+  
+  ifelse("netIncomeApplicableToCommonShares.raw" %in% colnames(df),
+         df <- df %>% mutate(maxAge = NA),
+         df <- df %>% mutate(maxAge = NA))
+  
+  df <- df %>% 
+    select(-ends_with(".raw"), -ends_with(".fmt"), -ends_with(".longFmt"),)
 
-  
   df <- df %>% 
     mutate(
       ticker = toupper(ticker),
-      year = as.integer(format(date, "%Y")),
+      #year = ifelse(length(df$date)!=0, as.integer(format(date, "%Y")), NA),
       report = ifelse(report=="yearly" | report=="y", "yearly","quarterly")
     ) %>% 
-    select (ticker, year, date, report, everything())
+    select (ticker, date, report, -maxAge, everything())
   
+  Sys.sleep(5)
   return(df)
-   
-  }
+  } 
+  
   
   list <- lapply(X=ticker, FUN=getIncomeJSON, report=report)
 
@@ -475,14 +539,6 @@ income_statements %>%
 
 
 
-
-
-
-
-
-```{r}
-
-```
 
 
 
