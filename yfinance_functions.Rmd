@@ -4,6 +4,20 @@ output: html_notebook
 editor_options: 
   chunk_output_type: inline
 ---
+```{r}
+library(tidyverse)
+library(DT)
+library(tidyquant)
+library(quantmod)
+library(rvest)
+library(rjson)
+library(jsonlite)
+library(plyr)
+library(dplyr)
+library(data.table)
+```
+
+
 
 ```{r}
 getIncome <- function (ticker, format = "tidy") {
@@ -217,8 +231,8 @@ getCashFlow <- function (ticker, format="tidy") {
 
 
 ```{r}
-getCashFlow("DIS", "clean")
-getIncome("V", "raw")
+getCashFlow("DIS")
+getIncome("V")
 ```
 
 
@@ -232,8 +246,131 @@ getIncome("V", "raw")
 
 
 
+```{r}
+  
+ticker="FB"
+
+scrape <- function (ticker) {
+    repeat {
+    tmp<-try({
+      url <- paste0("https://finance.yahoo.com/quote/",ticker,"/balance-sheet")
+      page <- read_html(url)
+      nodes <- page %>%html_nodes(".fi-row")
+      df = NULL
+      
+      for(i in nodes){
+      r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+      df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+      }
+      
+      matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+      headers <- c('Items', matches[[1]][,1]) 
+      names(df) <- headers
+      return(df)
+      }, silent=TRUE)
+    }
+    if (!(inherits(tmp,"try-error"))) 
+      break
+    }
+   
+
+  clean <- function (df) {
+    df <- df %>% 
+      dplyr::filter(Items != "Assets"
+                    & Items != "Current Assets"
+                    & Items != "Cash"
+                    & Items != "Non-current assets"
+                    & Items != "Property, plant and equipment"
+                    & Items != "Liabilities and stockholders' equity"
+                    & Items != "Liabilities"
+                    & Items != "Current Liabilities"
+                    & Items != "Non-current liabilities"
+                    & Items != "Stockholders' Equity")
+    df<- na_if(df,"-")
+    df <- df %>%
+       mutate_at(2:ncol(df), parse_number)
+  }
+
+  
+  tidy <- function (df) {
+    df[21, 1] = "deferred_revenue_lt"
+    df <- df %>% 
+      pivot_longer(c(2:ncol(df)), names_to="date") %>% 
+      pivot_wider(names_from = Items)
+  }
+    
+    df <- df %>% dplyr::rename(
+      "cash_equivalents" = `Cash And Cash Equivalents`,
+      "st_investments" = `Short Term Investments`,
+      "total_cash" = `Total Cash`,
+      "net_receivables" = `Net Receivables`,
+      "inventroy" = `Inventory`,
+      "other_ca" = `Other Current Assets`,
+      "total_ca" = `Total Current Assets`,
+      "gross_ppe" = `Gross property, plant and equipment`,
+      "accumulated_depreciation" = `Accumulated Depreciation`,
+      "net_ppe" = `Net property, plant and equipment`,
+      "equity_other_investments" = `Equity and other investments`,
+      "goodwill" = `Goodwill`,
+      "intangible_assets" = `Intangible Assets`,
+      "other_lta" = `Other long-term assets`,
+      "total_lta" = `Total non-current assets`,
+      "total_assets" = `Total Assets`,
+      "total_revenue" = `Total Revenue`,
+      "accounts_payable" = `Accounts Payable`,
+      "taxes_payable" = `Taxes payable`,
+      "accrued_liabilitie" = `Accrued liabilities`,
+      Other Current Liabilities
+      Total Current Liabilities
+      Long Term Debt
+      Deferred taxes liabilities
+      Deferred revenues
+      Other long-term liabilities
+      Total non-current liabilities
+      Total Liabilities
+      Common Stock
+      Retained Earnings
+      Accumulated other comprehensive income
+      Total stockholders' equity
+      `Total liabilities and stockholders' equity`
+      
+    )
+    
+    substrEnd <- function(x, n){
+    substr(x, nchar(x)-n+1, nchar(x))
+    }
+  
+    df <- df %>% 
+    mutate(ticker=toupper(ticker),
+            year = substrEnd(date,4))
+    
+    df <- df %>% 
+     select(ticker, date, year, everything())
+    
+    return(df)
+  }
+  
+test4 <-tidy(test3) 
+  
+  #if (format=="tidy") {
+  #  assign(paste0(tolower(ticker),"_cf"), tidy(clean(scrape(ticker))), envir = .GlobalEnv)
+  #} else if (format=="clean") {
+  #  assign(paste0(tolower(ticker),"_cf_clean"), clean(scrape(ticker)), envir = .GlobalEnv)
+  #} else if (format=="raw") {
+  #  assign(paste0(tolower(ticker), "_cf_raw"), scrape(ticker), envir = .GlobalEnv)
+  #} else {
+  #  stop('Format can only be "tidy", "clean", or "raw".')
+  #}
+  
+
+```
 
 
+```{r}
+n_occur <- data.frame(table(test3$Items))
+test3[test3$Items %in% n_occur$Var1[n_occur$Freq > 1],]
+
+```
 
 
 
