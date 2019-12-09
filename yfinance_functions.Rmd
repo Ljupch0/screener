@@ -353,15 +353,22 @@ getFinancials <- function (ticker, format="tidy") {
 
 
 
+```{r}
+getIncomeMultiple <- function (tickers) {
+  list <- lapply(X=tickers, FUN=getIncome)
+  assign("income_statements", bind_rows(list), envir=.GlobalEnv)
+}
 
+getBalanceSheetMultiple <- function (tickers) {
+  list <- lapply(X=tickers, FUN=getBalanceSheet)
+  assign("balance_sheets", bind_rows(list), envir=.GlobalEnv)
+}
 
-
-
-
-
-
-
-
+getCashFlowMultiple <- function (tickers) {
+  list <- lapply(X=tickers, FUN=getCashFlow())
+  assign("cash_flows", bind_rows(list), envir=.GlobalEnv)
+}
+```
 
 
 
