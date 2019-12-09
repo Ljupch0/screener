@@ -6,9 +6,6 @@ editor_options:
 ---
 ```{r}
 library(tidyverse)
-library(DT)
-library(tidyquant)
-library(quantmod)
 library(rvest)
 library(rjson)
 library(jsonlite)
@@ -142,7 +139,7 @@ getCashFlow <- function (ticker, format="tidy") {
     }
     if (!(inherits(tmp,"try-error"))) 
       break
-    }
+  }
   
 
   clean <- function (df) {
@@ -210,7 +207,6 @@ getCashFlow <- function (ticker, format="tidy") {
   }
   
 
-  
   if (format=="tidy") {
     assign(paste0(tolower(ticker),"_cf"), tidy(clean(scrape(ticker))), envir = .GlobalEnv)
   } else if (format=="clean") {
@@ -228,29 +224,11 @@ getCashFlow <- function (ticker, format="tidy") {
 
 
 
-
-
-```{r}
-getCashFlow("DIS")
-getIncome("V")
-```
-
-
-
-
-
-
-
-
-
-
-
-
 ```{r}
   
-ticker="FB"
+getBalanceSheet <- function (ticker, format="tidy") {
 
-scrape <- function (ticker) {
+  scrape <- function (ticker) {
     repeat {
     tmp<-try({
       url <- paste0("https://finance.yahoo.com/quote/",ticker,"/balance-sheet")
@@ -271,7 +249,7 @@ scrape <- function (ticker) {
     }
     if (!(inherits(tmp,"try-error"))) 
       break
-    }
+  }
    
 
   clean <- function (df) {
@@ -293,18 +271,17 @@ scrape <- function (ticker) {
 
   
   tidy <- function (df) {
-    df[21, 1] = "deferred_revenue_lt"
+    df[21, 1] = "deferred_revenue_st"
     df <- df %>% 
       pivot_longer(c(2:ncol(df)), names_to="date") %>% 
       pivot_wider(names_from = Items)
-  }
     
     df <- df %>% dplyr::rename(
       "cash_equivalents" = `Cash And Cash Equivalents`,
       "st_investments" = `Short Term Investments`,
       "total_cash" = `Total Cash`,
       "net_receivables" = `Net Receivables`,
-      "inventroy" = `Inventory`,
+      "inventory" = `Inventory`,
       "other_ca" = `Other Current Assets`,
       "total_ca" = `Total Current Assets`,
       "gross_ppe" = `Gross property, plant and equipment`,
@@ -312,28 +289,27 @@ scrape <- function (ticker) {
       "net_ppe" = `Net property, plant and equipment`,
       "equity_other_investments" = `Equity and other investments`,
       "goodwill" = `Goodwill`,
-      "intangible_assets" = `Intangible Assets`,
+      "intangibles" = `Intangible Assets`,
       "other_lta" = `Other long-term assets`,
       "total_lta" = `Total non-current assets`,
       "total_assets" = `Total Assets`,
       "total_revenue" = `Total Revenue`,
-      "accounts_payable" = `Accounts Payable`,
+      "payables" = `Accounts Payable`,
       "taxes_payable" = `Taxes payable`,
-      "accrued_liabilitie" = `Accrued liabilities`,
-      Other Current Liabilities
-      Total Current Liabilities
-      Long Term Debt
-      Deferred taxes liabilities
-      Deferred revenues
-      Other long-term liabilities
-      Total non-current liabilities
-      Total Liabilities
-      Common Stock
-      Retained Earnings
-      Accumulated other comprehensive income
-      Total stockholders' equity
-      `Total liabilities and stockholders' equity`
-      
+      "accrued_liabilities" = `Accrued liabilities`,
+      "other_cl" = `Other Current Liabilities`,
+      "total_cl" = `Total Current Liabilities`,
+      "lt_debt" = `Long Term Debt`,
+      "deferred_taxes" = `Deferred taxes liabilities`,
+      "deferred_revenue_lt" = `Deferred revenues`,
+      "other_lt_liabilities" = `Other long-term liabilities`,
+      "total_lt_liabilities" = `Total non-current liabilities`,
+      "total_liabilities" = `Total Liabilities`,
+      "common_stock" = `Common Stock`,
+      "retained_earnings" = `Retained Earnings`,
+      "accumulated_other_income" = `Accumulated other comprehensive income`,
+      "total_equity" = `Total stockholders' equity`,
+      "total_liabilities_equity" = `Total liabilities and stockholders' equity`
     )
     
     substrEnd <- function(x, n){
@@ -349,29 +325,31 @@ scrape <- function (ticker) {
     
     return(df)
   }
-  
-test4 <-tidy(test3) 
-  
-  #if (format=="tidy") {
-  #  assign(paste0(tolower(ticker),"_cf"), tidy(clean(scrape(ticker))), envir = .GlobalEnv)
-  #} else if (format=="clean") {
-  #  assign(paste0(tolower(ticker),"_cf_clean"), clean(scrape(ticker)), envir = .GlobalEnv)
-  #} else if (format=="raw") {
-  #  assign(paste0(tolower(ticker), "_cf_raw"), scrape(ticker), envir = .GlobalEnv)
-  #} else {
-  #  stop('Format can only be "tidy", "clean", or "raw".')
-  #}
-  
+ 
+
+  if (format=="tidy") {
+    assign(paste0(tolower(ticker),"_bs"), tidy(clean(scrape(ticker))), envir = .GlobalEnv)
+  } else if (format=="clean") {
+    assign(paste0(tolower(ticker),"_bs_clean"), clean(scrape(ticker)), envir = .GlobalEnv)
+  } else if (format=="raw") {
+    assign(paste0(tolower(ticker), "_bs_raw"), scrape(ticker), envir = .GlobalEnv)
+  } else {
+    stop('Format can only be "tidy", "clean", or "raw".')
+  }
+
+}
 
 ```
+
 
 
 ```{r}
-n_occur <- data.frame(table(test3$Items))
-test3[test3$Items %in% n_occur$Var1[n_occur$Freq > 1],]
-
+getFinancials <- function (ticker, format="tidy") {
+  getIncome(ticker, format)
+  getBalanceSheet(ticker, format)
+  getCashFlow(ticker, format)
+}
 ```
-
 
 
 
