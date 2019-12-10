@@ -127,13 +127,13 @@ getIncome <- function (ticker, format = "tidy", assign = TRUE) {
 
 
 ```{r}
-getIncome("KO", assign = FALSE)
+getIncome("KO")
 
 ```
 
 
 ```{r}
-getCashFlow <- function (ticker, format="tidy") {
+getCashFlow <- function (ticker, format = "tidy", assign = TRUE) {
   
   scrape <- function (ticker) {
     repeat {
@@ -225,13 +225,25 @@ getCashFlow <- function (ticker, format="tidy") {
   
 
   if (format=="tidy") {
-    assign(paste0(tolower(ticker),"_cf"), tidy(clean(scrape(ticker))), envir = .GlobalEnv)
+    result <- tidy(clean(scrape(ticker)))
+    ifelse(assign == TRUE,
+           assign(paste0(tolower(ticker),"_cf"), result, envir = .GlobalEnv),
+           return(result))
+    
   } else if (format=="clean") {
-    assign(paste0(tolower(ticker),"_cf_clean"), clean(scrape(ticker)), envir = .GlobalEnv)
+    result <- clean(scrape(ticker))
+    ifelse(assign == TRUE,
+           assign(paste0(tolower(ticker),"_cf_clean"), result, envir = .GlobalEnv),
+           return(result))
+    
   } else if (format=="raw") {
-    assign(paste0(tolower(ticker), "_cf_raw"), scrape(ticker), envir = .GlobalEnv)
+    result <- scrape(ticker)
+    ifelse(assign == TRUE,
+           assign(paste0(tolower(ticker),"_cf_raw"), result, envir = .GlobalEnv),
+           return(result))
+    
   } else {
-    stop('Format can only be "tidy", "clean", or "raw".')
+    stop('Format can only be "tidy", "clean", or "raw", and assign can be TRUE or FALSE')
   }
   
 
@@ -243,30 +255,47 @@ getCashFlow <- function (ticker, format="tidy") {
 
 ```{r}
   
-getBalanceSheet <- function (ticker, format="tidy") {
+getBalanceSheet <- function (ticker, format="tidy", assign=TRUE) {
 
-  scrape <- function (ticker) {
-    repeat {
-    tmp<-try({
-      url <- paste0("https://finance.yahoo.com/quote/",ticker,"/balance-sheet")
-      page <- read_html(url)
-      nodes <- page %>%html_nodes(".fi-row")
-      df = NULL
-      
-      for(i in nodes){
-      r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-      df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
-      }
-      
-      matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-      headers <- c('Items', matches[[1]][,1]) 
-      names(df) <- headers
-      return(df)
-      }, silent=TRUE)
+  #scrape <- function (ticker) {
+  count <- 0
+  maxTries <- 3
+  while(count<maxTries) {
+    try {
+        // Some Code
+        // break out of loop, or return, on success
+    } catch (SomeException e) {
+        // handle exception
+        if (++count == maxTries) throw e;
     }
-    if (!(inherits(tmp,"try-error"))) 
-      break
-  }
+}
+  
+  #GET 5 tries + error if fail
+  
+  
+  
+  
+  
+  
+  
+  
+   {
+          url <- paste0("https://finance.yahoo.com/quote/",ticker,"/balance-sheet")
+          page <- read_html(url)
+          nodes <- page %>%html_nodes(".fi-row")
+          
+          for(i in nodes){
+          r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+          df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+          
+          matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+          headers <- c('Items', matches[[1]][,1]) 
+          names(df) <- headers
+          return(df)
+          }
+    }
+
+      
    
 
   clean <- function (df) {
@@ -345,14 +374,27 @@ getBalanceSheet <- function (ticker, format="tidy") {
  
 
   if (format=="tidy") {
-    assign(paste0(tolower(ticker),"_bs"), tidy(clean(scrape(ticker))), envir = .GlobalEnv)
+    result <- tidy(clean(scrape(ticker)))
+    ifelse(assign == TRUE,
+           assign(paste0(tolower(ticker),"_bs"), result, envir = .GlobalEnv),
+           return(result))
+    
   } else if (format=="clean") {
-    assign(paste0(tolower(ticker),"_bs_clean"), clean(scrape(ticker)), envir = .GlobalEnv)
+    result <- clean(scrape(ticker))
+    ifelse(assign == TRUE,
+           assign(paste0(tolower(ticker),"_bs_clean"), result, envir = .GlobalEnv),
+           return(result))
+    
   } else if (format=="raw") {
-    assign(paste0(tolower(ticker), "_bs_raw"), scrape(ticker), envir = .GlobalEnv)
+    result <- scrape(ticker)
+    ifelse(assign == TRUE,
+           assign(paste0(tolower(ticker),"_bs_raw"), result, envir = .GlobalEnv),
+           return(result))
+    
   } else {
-    stop('Format can only be "tidy", "clean", or "raw".')
+    stop('Format can only be "tidy", "clean", or "raw", and assign can be TRUE or FALSE')
   }
+  
 
 }
 
@@ -361,11 +403,44 @@ getBalanceSheet <- function (ticker, format="tidy") {
 
 
 ```{r}
-getFinancials <- function (ticker, format="tidy") {
-  getIncome(ticker, format)
-  getBalanceSheet(ticker, format)
-  getCashFlow(ticker, format)
+getBalanceSheet("AAPL", "clean", assign=FALSE)
+```
+
+
+
+```{r}
+getFinancials <- function (ticker, assign=TRUE) {
+  l <- list()
+  l[[1]]<- getIncome(ticker, format="tidy", assign=FALSE)
+  l[[2]] <- getBalanceSheet(ticker, format="tidy", assign=FALSE)
+  l[[3]] <- getCashFlow(ticker, format="tidy", assign=FALSE)
+  result <- reduce(l, full_join, by = c("ticker", "date", "year")) %>% 
+    select(-ni.y)
+
+  ifelse(assign==TRUE,
+         assign(paste0(tolower(ticker), "_financials"), result, env=.GlobalEnv),
+         return(result))
 }
+```
+
+
+```{r}
+getFinancials("KO", assign=FALSE) %>% 
+  dplyr::select(ends_with(".x"),ends_with(".y"))
+
+
+#clean up duplicates, rename pseudo-duplicates
+```
+
+
+
+```{r}
+getIncome(ticker, format="tidy", assign=FALSE)
+```
+
+
+```{r}
+getFinancials("KO")
 ```
 
 
