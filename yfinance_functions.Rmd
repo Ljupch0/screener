@@ -17,7 +17,7 @@ library(data.table)
 
 
 ```{r}
-getIncome <- function (ticker, format = "tidy") {
+getIncome <- function (ticker, format = "tidy", assign = TRUE) {
   
   scrape <- function (ticker) {
     repeat {
@@ -101,18 +101,35 @@ getIncome <- function (ticker, format = "tidy") {
   
   
   if (format=="tidy") {
-    assign(paste0(tolower(ticker),"_income"), tidy(clean(scrape(ticker))),envir = .GlobalEnv)
+    result <- tidy(clean(scrape(ticker)))
+    ifelse(assign == TRUE,
+           assign(paste0(tolower(ticker),"_income"), result, envir = .GlobalEnv),
+           return(result))
+    
   } else if (format=="clean") {
-    assign(paste0(tolower(ticker),"_income_clean"), clean(scrape(ticker)),envir = .GlobalEnv)
+    result <- clean(scrape(ticker))
+    ifelse(assign == TRUE,
+           assign(paste0(tolower(ticker),"_income_clean"), result, envir = .GlobalEnv),
+           return(result))
+    
   } else if (format=="raw") {
-    assign(paste0(tolower(ticker),"_income_raw"), scrape(ticker), envir = .GlobalEnv)
+    result <- scrape(ticker)
+    ifelse(assign == TRUE,
+           assign(paste0(tolower(ticker),"_income_raw"), result, envir = .GlobalEnv),
+           return(result))
+    
   } else {
-    stop('Format can only be "tidy", "clean", or "raw".')
+    stop('Format can only be "tidy", "clean", or "raw", and assign can be TRUE or FALSE')
   }
   
 }
 ```
 
+
+```{r}
+getIncome("KO", assign = FALSE)
+
+```
 
 
 ```{r}

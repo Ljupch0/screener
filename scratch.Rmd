@@ -538,7 +538,15 @@ income_statements %>%
 ```
 
 
+```{r}
+getFinancials("GOOG", format="raw")
+```
 
+
+
+```{r}
+getIncomeMultiple(c("MSFT", "AAPL"))
+```
 
 
 
