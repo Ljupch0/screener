@@ -251,52 +251,38 @@ getCashFlow <- function (ticker, format = "tidy", assign = TRUE) {
 ```
 
 
+```{r}
+getCashFlow("FB", assign=FALSE)
+```
 
 
 ```{r}
-  
 getBalanceSheet <- function (ticker, format="tidy", assign=TRUE) {
 
-  #scrape <- function (ticker) {
-  count <- 0
-  maxTries <- 3
-  while(count<maxTries) {
-    try {
-        // Some Code
-        // break out of loop, or return, on success
-    } catch (SomeException e) {
-        // handle exception
-        if (++count == maxTries) throw e;
-    }
-}
-  
-  #GET 5 tries + error if fail
-  
-  
-  
-  
-  
-  
-  
-  
-   {
-          url <- paste0("https://finance.yahoo.com/quote/",ticker,"/balance-sheet")
-          page <- read_html(url)
-          nodes <- page %>%html_nodes(".fi-row")
-          
-          for(i in nodes){
-          r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
-          df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
-          
-          matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
-          headers <- c('Items', matches[[1]][,1]) 
-          names(df) <- headers
-          return(df)
-          }
-    }
-
+scrape <- function (ticker) {
+  df <- NULL
+  attempt <- 0
+  while(is.null(df) && attempt <= 3 ) {
+    attempt <- attempt + 1
+    try({
+      url <- paste0("https://finance.yahoo.com/quote/",ticker,"/balance-sheet")
+      page <- read_html(url)
+      nodes <- page %>%html_nodes(".fi-row")
       
-   
+      for(i in nodes){
+      r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+      df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+      }
+      matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+      headers <- c('Items', matches[[1]][,1]) 
+      names(df) <- headers
+      assign("df", df, pos = parent.frame())
+    })}
+  
+  ifelse(is.null(df),
+         stop("After 5 attempts, no data was downloaded from yfinance. Either your ticker is wrong, or you have been downloading a lot of data and yfinance is blocking you."),
+         return(df))
+}
 
   clean <- function (df) {
     df <- df %>% 
@@ -371,33 +357,35 @@ getBalanceSheet <- function (ticker, format="tidy", assign=TRUE) {
     
     return(df)
   }
- 
-
-  if (format=="tidy") {
-    result <- tidy(clean(scrape(ticker)))
-    ifelse(assign == TRUE,
-           assign(paste0(tolower(ticker),"_bs"), result, envir = .GlobalEnv),
-           return(result))
-    
-  } else if (format=="clean") {
-    result <- clean(scrape(ticker))
-    ifelse(assign == TRUE,
-           assign(paste0(tolower(ticker),"_bs_clean"), result, envir = .GlobalEnv),
-           return(result))
-    
-  } else if (format=="raw") {
-    result <- scrape(ticker)
-    ifelse(assign == TRUE,
-           assign(paste0(tolower(ticker),"_bs_raw"), result, envir = .GlobalEnv),
-           return(result))
-    
-  } else {
-    stop('Format can only be "tidy", "clean", or "raw", and assign can be TRUE or FALSE')
-  }
   
-
+    if (assign != TRUE || assign != FALSE) stop("Assign can only be TRUE or FALSE.")
+  
+    if (format=="tidy") {
+      result <- tidy(clean(scrape(ticker)))
+      ifelse(assign == TRUE,
+             assign(paste0(tolower(ticker),"_bs"), result, envir = .GlobalEnv),
+             return(result))
+    } else if (format=="clean") {
+      result <- clean(scrape(ticker))
+      ifelse(assign == TRUE,
+             assign(paste0(tolower(ticker),"_bs_clean"), result, envir = .GlobalEnv),
+             return(result))
+    } else if (format=="raw") {
+      result <- scrape(ticker)
+      ifelse(assign == TRUE,
+             assign(paste0(tolower(ticker),"_bs_raw"), result, envir = .GlobalEnv),
+             return(result))
+    } else {
+      stop('Format can only be "tidy", "clean", or "raw".')
+    }
+    
+  
 }
+```
 
+
+```{r}
+getBalanceSheet("AAPL","tidy", FALSE)
 ```
 
 
