@@ -182,12 +182,12 @@ getCashFlow <- function (ticker, format = "tidy", assign = TRUE) {
     df <- df %>% dplyr::rename(
       "ni" = `Net Income`,
       "da" = `Depreciation & amortization`,
-      "deferred_taxes"=`Deferred income taxes`,
+      "deferred_taxes_change"=`Deferred income taxes`,
       "stock_comp" = `Stock based compensation`,
-      "change_working_capital" = `Change in working capital`,
-      "receivables" = `Accounts receivable`,
-      "inventory" = `Inventory`,
-      "payables" = `Accounts Payable`,
+      "working_capital_change" = `Change in working capital`,
+      "receivables_change" = `Accounts receivable`,
+      "inventory_change" = `Inventory`,
+      "payables_change" = `Accounts Payable`,
       "other_working_capital" = `Other working capital`,
       "other_non_cash" = `Other non-cash items`,
       "operating_cf" = `Net cash provided by operating activites`,
@@ -393,6 +393,9 @@ getFinancials <- function (ticker, assign=TRUE) {
   l[[3]] <- getCashFlow(ticker, format="tidy", assign=FALSE)
   result <- reduce(l, full_join, by = c("ticker", "date", "year")) %>% 
     select(-ni.y)
+  result <- result %>% dplyr::rename(
+    "ni" = `ni.x`
+  )
 
   ifelse(assign==TRUE,
          assign(paste0(tolower(ticker), "_financials"), result, env=.GlobalEnv),
@@ -400,29 +403,11 @@ getFinancials <- function (ticker, assign=TRUE) {
 }
 ```
 
-
 ```{r}
-getIncome("KO", "tidy", assign=FALSE)
+getBalanceSheet("KO", "raw")
+getCashFlow("KO", "raw")
 ```
 
-```{r}
-getCashFlow("KO", "tidy", assign=FALSE)
-
-```
-
-```{r}
-getBalanceSheet("KO", "tidy", assign=FALSE)
-```
-
-
-
-```{r}
-getFinancials("KO", assign=FALSE) %>% 
-  dplyr::select(ends_with(".x"),ends_with(".y"))
-
-
-#clean up duplicates, rename pseudo-duplicates
-```
 
 
 
