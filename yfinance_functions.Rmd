@@ -80,8 +80,8 @@ getIncome <- function (ticker, format = "tidy", assign = TRUE) {
        "revenue"=`Total Revenue`,
        "cost_revenue" = `Cost of Revenue`,
        "gross_profit" = `Gross Profit`,
-       "r&d" = `Research Development`,
-       "sg&a" = `Selling General and Administrative`,
+       "rd" = `Research Development`,
+       "sga" = `Selling General and Administrative`,
        "operating_expenses" = `Total Operating Expenses`,
        "ebit" = `Operating Income or Loss`,
        "interest_expense" = `Interest Expense`,
@@ -101,7 +101,6 @@ getIncome <- function (ticker, format = "tidy", assign = TRUE) {
   }
   
   if (assign != TRUE && assign != FALSE) stop("Assign can only be TRUE or FALSE.")
-  
   
   if (format=="tidy") {
     result <- tidy(clean(scrape(ticker)))
@@ -387,27 +386,32 @@ getBalanceSheet <- function (ticker, format="tidy", assign=TRUE) {
 
 ```{r}
 getFinancials <- function (ticker, assign=TRUE) {
-  l <- list()
-  l[[1]]<- getIncome(ticker, format="tidy", assign=FALSE)
-  l[[2]] <- getBalanceSheet(ticker, format="tidy", assign=FALSE)
-  l[[3]] <- getCashFlow(ticker, format="tidy", assign=FALSE)
-  result <- reduce(l, full_join, by = c("ticker", "date", "year")) %>% 
-    select(-ni.y)
-  result <- result %>% dplyr::rename(
-    "ni" = `ni.x`
-  )
+  m <- list()
+  for (i in ticker) {
+    l <- list()
+    l[[1]]<- getIncome(i, format="tidy", assign=FALSE)
+    l[[2]] <- getBalanceSheet(i, format="tidy", assign=FALSE)
+    l[[3]] <- getCashFlow(i, format="tidy", assign=FALSE)
+    m[[match(i, ticker)]] <- reduce(l, full_join, by = c("ticker", "date", "year")) %>% 
+      select(-ni.y) %>% 
+      dplyr::rename("ni" = `ni.x`)
+    result <- bind_rows(m)
+  }
 
   ifelse(assign==TRUE,
-         assign(paste0(tolower(ticker), "_financials"), result, env=.GlobalEnv),
+         ifelse(length(ticker)==1,
+                assign(paste0(tolower(ticker), "_financials"), result, env=.GlobalEnv),
+                assign("financial_statements", result, env=.GlobalEnv)),
          return(result))
 }
+
 ```
+
+
 
 ```{r}
-getBalanceSheet("KO", "raw")
-getCashFlow("KO", "raw")
+getFinancials("FB")
 ```
-
 
 
 
@@ -431,7 +435,7 @@ getCashFlowMultiple <- function (tickers) {
 
 
 ```{r}
-getFinancials("FB", assign=FALSE)
+getFinancials("ACN", assign=FALSE)
 ```
 
 
