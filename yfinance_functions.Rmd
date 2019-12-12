@@ -252,7 +252,6 @@ getCashFlow <- function (ticker, format = "tidy", assign = TRUE) {
 
 
 
-
 ```{r}
 getBalanceSheet <- function (ticker, format="tidy", assign=TRUE) {
   
@@ -378,6 +377,150 @@ getBalanceSheet <- function (ticker, format="tidy", assign=TRUE) {
     
   
 }
+
+
+
+```
+
+
+
+
+
+```{r}
+getBalanceSheetTest <- function (ticker, format="tidy", assign=TRUE) {
+  
+  scrape <- function (ticker) {
+    df <- NULL
+    attempt <- 0
+    while(is.null(df) && attempt <= 3 ) {
+      attempt <- attempt + 1
+      try({
+        url <- paste0("https://finance.yahoo.com/quote/",ticker,"/balance-sheet")
+        page <- read_html(url)
+        nodes <- page %>%html_nodes(".fi-row")
+        
+        for(i in nodes){
+        r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+        df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+        }
+        matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\\d{1,2}/\\d{1,2}/\\d{4}')  
+        headers <- c('Items', matches[[1]][,1]) 
+        names(df) <- headers
+        assign("df", df, pos = parent.frame())
+      }, silent = TRUE)}
+    
+    ifelse(is.null(df),
+           stop("After 3 attempts, no data was downloaded from yfinance. Either your ticker is wrong, or you have been downloading a lot of data and yfinance is blocking you."),
+           return(df))
+  }
+
+  clean <- function (df) {
+    df <- df %>% 
+      dplyr::filter(Items != "Assets"
+                    & Items != "Current Assets"
+                    & Items != "Cash"
+                    & Items != "Non-current assets"
+                    & Items != "Property, plant and equipment"
+                    & Items != "Liabilities and stockholders' equity"
+                    & Items != "Liabilities"
+                    & Items != "Current Liabilities"
+                    & Items != "Non-current liabilities"
+                    & Items != "Stockholders' Equity")
+    df<- na_if(df,"-")
+    df <- df %>%
+       mutate_at(2:ncol(df), parse_number)
+  }
+
+  
+  tidy <- function (df) {
+    df[21, 1] = "deferred_revenue_st"
+    df <- df %>% 
+      pivot_longer(c(2:ncol(df)), names_to="date") %>% 
+      pivot_wider(names_from = Items)
+    
+    df <- df %>% dplyr::rename(
+      "cash_equivalents" = `Cash And Cash Equivalents`,
+      "st_investments" = `Short Term Investments`,
+      "total_cash" = `Total Cash`,
+      "net_receivables" = `Net Receivables`,
+      "inventory" = `Inventory`,
+      "other_ca" = `Other Current Assets`,
+      "total_ca" = `Total Current Assets`,
+      "gross_ppe" = `Gross property, plant and equipment`,
+      "accumulated_depreciation" = `Accumulated Depreciation`,
+      "net_ppe" = `Net property, plant and equipment`,
+      "equity_other_investments" = `Equity and other investments`,
+      "goodwill" = `Goodwill`,
+      "intangibles" = `Intangible Assets`,
+      "other_lta" = `Other long-term assets`,
+      "total_lta" = `Total non-current assets`,
+      "total_assets" = `Total Assets`,
+      "total_revenue" = `Total Revenue`,
+      "payables" = `Accounts Payable`,
+      "taxes_payable" = `Taxes payable`,
+      "accrued_liabilities" = `Accrued liabilities`,
+      "other_cl" = `Other Current Liabilities`,
+      "total_cl" = `Total Current Liabilities`,
+      "lt_debt" = `Long Term Debt`,
+      "deferred_taxes" = `Deferred taxes liabilities`,
+      "deferred_revenue_lt" = `Deferred revenues`,
+      "other_lt_liabilities" = `Other long-term liabilities`,
+      "total_lt_liabilities" = `Total non-current liabilities`,
+      "total_liabilities" = `Total Liabilities`,
+      "common_stock" = `Common Stock`,
+      "retained_earnings" = `Retained Earnings`,
+      "accumulated_other_income" = `Accumulated other comprehensive income`,
+      "total_equity" = `Total stockholders' equity`,
+      "total_liabilities_equity" = `Total liabilities and stockholders' equity`
+    )
+    
+    substrEnd <- function(x, n){
+    substr(x, nchar(x)-n+1, nchar(x))
+    }
+  
+    df <- df %>% 
+    mutate(ticker=toupper(ticker),
+            year = substrEnd(date,4))
+    
+    df <- df %>% 
+     select(ticker, date, year, everything())
+    
+    return(df)
+  }
+  
+    if (assign != TRUE && assign != FALSE) stop("Assign can only be TRUE or FALSE.")
+    if ((format == "clean" || format=="raw") && length(ticker) > 1) stop('Multiple tickers can be used only with a tidy format.')
+  
+    l <- list()
+    if (format=="tidy") {
+      for (i in ticker) {
+        l[[match(i,ticker)]] <- tidy(clean(scrape(i)))
+      }
+      result <- bind_rows(l)
+      ifelse(assign == TRUE,
+             ifelse(length(ticker==1),
+                    assign(paste0(tolower(ticker),"_bs"), result, envir = .GlobalEnv),
+                    assign("balance_sheets", result, envir = .GlobalEnv)),
+             return(result))
+    } else if (format=="clean") {
+      result <- clean(scrape(ticker))
+      ifelse(assign == TRUE,
+             assign(paste0(tolower(ticker),"_bs_clean"), result, envir = .GlobalEnv),
+             return(result))
+    } else if (format=="raw") {
+      result <- scrape(ticker)
+      ifelse(assign == TRUE,
+             assign(paste0(tolower(ticker),"_bs_raw"), result, envir = .GlobalEnv),
+             return(result))
+    } else {
+      stop('Format can only be "tidy", "clean", or "raw".')
+    }
+    
+  
+}
+
+
+
 ```
 
 
@@ -401,16 +544,51 @@ getFinancials <- function (ticker, assign=TRUE) {
   ifelse(assign==TRUE,
          ifelse(length(ticker)==1,
                 assign(paste0(tolower(ticker), "_financials"), result, env=.GlobalEnv),
-                assign("financial_statements", result, env=.GlobalEnv)),
+                assign("financials", result, env=.GlobalEnv)),
          return(result))
 }
 
 ```
 
 
+```{r}
+getFinancials(c("FB","GOOG","MSFT","AMZN"))
+```
+
 
 ```{r}
-getFinancials("FB")
+financial_statements %>%
+  dplyr::filter(year=="2016" | year=="2017" | year=="2018") %>% 
+  mutate(
+    ebit_margin = ebit/revenue,
+    ebitda_margin = ebitda/revenue,
+  ) %>% 
+ggplot()+
+ geom_bar(mapping=aes(x=year, y=ebitda_margin, fill=ticker),
+          stat="identity",
+          position="dodge")+
+  theme_minimal()
+```
+
+
+```{r}
+ticker <- c("FB", "GOOG")
+l <- list()
+      for (i in ticker) {
+        l[[match(i,ticker)]] <- tidy(clean(scrape(i)))
+      }
+      result <- bind_rows(l)
+```
+
+```{r}
+i <- "FB"
+
+bruh <- tidy(clean(scrape(i)))
+```
+
+
+```{r}
+getBalanceSheet(c("GOOG", "FB"), format="tidy", assign=FALSE)
 ```
 
 
