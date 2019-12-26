@@ -76,7 +76,7 @@ Joel Greenblatt's Magic Formula:
 
 ```{r}
 #Get Russell 3000 index members, represents 98% of all traded US stocks
-russell3000 <- tq_index("russell3000")
+russell3000 <- tidyquant::tq_index("s&p500")
 
 #Step 1 of Magic Formula is already fulfilled, as the smallest members of the Russell3000 index have market capitalizations of around $200 million (> benchmark 100m)
 
@@ -246,6 +246,8 @@ getIncome("KO", format="tidy")
 
 https://stackoverflow.com/questions/44030983/yahoo-finance-url-not-working
 
+https://query2.finance.yahoo.com/v10/finance/quoteSummary/AAPL?modules=incomeStatementHistory
+
 Yahoo Finance Modules:
 modules = [
    'assetProfile',
@@ -355,12 +357,180 @@ getIncomeJSON <- function (ticker, report="yearly") {
 ```
 
 
+
+
+
+
 ```{r}
-stocks <- sp500$symbol
-stocks <- stocks[50:100]
-problem <- "BRK.B"
+#getIncomeJSON2
+
+json <- fromJSON("https://query2.finance.yahoo.com/v10/finance/quoteSummary/AAPL?modules=cashflowStatementHistoryQuarterly")
+
+df_json <- as_tibble(json, validate = F) 
+
+df_json1 <- flatten(df_json[[1]][[1]][[1]][[1,1]])
 ```
 
+
+
+
+```{r}
+list_json <- map_if(json, is.data.frame, list) 
+
+df_json_list <- flatten(as_tibble(list_json))
+
+df_json_list1 <- flatten(df_json_list[[1]][[1]][[1]][[1,1]])
+```
+
+
+```{r}
+test1 <- fromJSON("https://query2.finance.yahoo.com/v10/finance/quoteSummary/AAPL?modules=incomeStatementHistory")
+
+df_test151 <- flatten(test1[[1]][[1]][[1]][[1,1]])
+
+```
+
+
+
+```{r}
+json2tidy <- function (url) {
+  json <- fromJSON(url)
+  df <- flatten(json[[1]][[1]][[1]][[1,1]])
+  return(df)
+} 
+```
+
+
+Yahoo Finance Modules:
+modules = [
+   'assetProfile',
+   'incomeStatementHistory',
+   'incomeStatementHistoryQuarterly',
+   'balanceSheetHistory',
+   'balanceSheetHistoryQuarterly',
+   'cashflowStatementHistory',
+   'cashflowStatementHistoryQuarterly',
+   'defaultKeyStatistics',
+   'financialData',
+   'calendarEvents',
+   'secFilings',
+   'recommendationTrend',
+   'upgradeDowngradeHistory',
+   'institutionOwnership',
+   'fundOwnership',
+   'majorDirectHolders',
+   'majorHoldersBreakdown',
+   'insiderTransactions',
+   'insiderHolders',
+   'netSharePurchaseActivity',
+   'earnings',
+   'earningsHistory',
+   'earningsTrend',
+   'industryTrend',
+   'indexTrend',
+   'sectorTrend' ]
+
+
+```{r}
+t<- json2tidy("https://query2.finance.yahoo.com/v10/finance/quoteSummary/AAPL?modules=cashflowStatementHistory")
+
+t <- t %>% 
+  select(endDate.fmt, ends_with(".raw"), -endDate.raw)
+
+names(t) <- sub(".raw","", names(t))
+names(t) <- sub(".fmt","", names(t))
+```
+
+
+
+```{r}
+getFinancials2 <- function (ticker, report_type="annual") {
+  ticker <- base::toupper(ticker)
+  json2tidy <- function (url) {
+    json <- fromJSON(url)
+    df <- flatten(json[[1]][[1]][[1]][[1,1]])
+    return(df)
+  } 
+  baseURL <- "https://query2.finance.yahoo.com/v10/finance/quoteSummary/"
+  cfURL <- ifelse(report_type=="quarterly",
+                      paste0(baseURL, ticker, "?modules=", "cashflowStatementHistoryQuarterly"),
+                      paste0(baseURL, ticker, "?modules=", "cashflowStatementHistory"))
+  
+  json2tidy <- function (url) {
+  json <- fromJSON(url)
+  df <- flatten(json[[1]][[1]][[1]][[1,1]])
+  return(df)
+  }
+  
+  getIncome <- function(ticker, report_type="annual") {
+    baseURL <- "https://query2.finance.yahoo.com/v10/finance/quoteSummary/"
+    incomeURL <- ifelse(report_type=="quarterly",
+                      paste0(baseURL, ticker, "?modules=", "incomeStatementHistoryQuarterly"),
+                      paste0(baseURL, ticker, "?modules=", "incomeStatementHistory"))
+    df <- json2tidy(incomeURL) %>% 
+      select(endDate.fmt, ends_with(".raw"), -endDate.raw)
+    names(df) <- sub(".raw","", names(df))
+    names(df) <- sub(".fmt","", names(df))
+    df$ticker <- ticker
+    return(df)
+  }
+  
+  getBS <- function(ticker, report_type="annual") {
+   baseURL <- "https://query2.finance.yahoo.com/v10/finance/quoteSummary/"
+   bsURL <- ifelse(report_type=="quarterly",
+                      paste0(baseURL, ticker, "?modules=", "balanceSheetHistoryQuarterly"),
+                      paste0(baseURL, ticker, "?modules=", "balanceSheetHistory"))
+    df <- json2tidy(bsURL) %>% 
+      select(endDate.fmt, ends_with(".raw"), -endDate.raw)
+    names(df) <- sub(".raw","", names(df))
+    names(df) <- sub(".fmt","", names(df))
+    df$ticker <- ticker
+    return(df)
+  }
+  
+  getCF <- function(ticker, report_type="annual") {
+    baseURL <- "https://query2.finance.yahoo.com/v10/finance/quoteSummary/"
+    cfURL <- ifelse(report_type=="quarterly",
+                      paste0(baseURL, ticker, "?modules=", "cashflowStatementHistoryQuarterly"),
+                      paste0(baseURL, ticker, "?modules=", "cashflowStatementHistory"))
+    
+    df <- json2tidy(cfURL) %>% 
+      select(endDate.fmt, ends_with(".raw"), -endDate.raw)
+    names(df) <- sub(".raw","", names(df))
+    names(df) <- sub(".fmt","", names(df))
+    df$ticker <- ticker
+    return(df)
+  } 
+  
+  m <- list()
+  for (i in ticker) {
+    l <- list()
+    l[[1]] <- getIncome(i)
+    l[[2]] <- getBS(i)
+    l[[3]] <- getCF(i)
+    m[[match(i, ticker)]] <- purrr::reduce(l, full_join, by = c("ticker", "endDate")) %>% 
+      dplyr::select(ticker, endDate, everything(), -netIncome.y) %>%
+      dplyr::rename(netIncome = netIncome.x)
+  }
+  
+  result <- dplyr::bind_rows(m)
+  options(scipen = 999)
+  return(result)
+}  
+```
+
+```{r}
+
+```
+
+
+```{r}
+bruh <- getFinancials2()
+```
+
+```{r}
+getIncome("AAPL")
+```
 
 
 
